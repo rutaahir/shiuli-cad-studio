@@ -211,7 +211,6 @@ class ApiClient {
     const url = `${API_BASE_URL}${sanitizedEndpoint}`;
     const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
-<<<<<<< HEAD
     // Auto-ensure token if missing and not a public auth endpoint
     if (!localStorage.getItem('shiuli_access_token') && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register')) {
       try {
@@ -220,13 +219,7 @@ class ApiClient {
         console.warn('Auto auth initialization skipped:', e);
       }
     }
-    let headers = this.getHeaders(options.headers as Record<string, string>) as Record<string, string>;
-    if (options.body instanceof FormData) {
-      delete headers['Content-Type'];
-    }
-=======
     let headers = this.getHeaders(options.headers as Record<string, string>, isFormData);
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
 
     try {
       let response = await fetch(url, {
@@ -264,16 +257,6 @@ class ApiClient {
             this.clearSession();
           }
         }
-<<<<<<< HEAD
-
-        // Retry request with fresh access token
-        headers = this.getHeaders(options.headers as Record<string, string>) as Record<string, string>;
-        response = await fetch(url, {
-          ...options,
-          headers,
-        });
-=======
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
       }
 
       return await this.handleResponse<T>(response);

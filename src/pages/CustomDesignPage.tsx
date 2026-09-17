@@ -400,13 +400,8 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
 
         if (!isMounted) return;
 
-<<<<<<< HEAD
-        const validGroups = (Array.isArray(groupsData) && groupsData.length > 0) ? groupsData : DEFAULT_OPTION_GROUPS;
-        setOptionGroups(validGroups);
-=======
-        const effectiveGroups = Array.isArray(groupsData) && groupsData.length > 0 ? groupsData : DEFAULT_OPTION_GROUPS;
+        const effectiveGroups = (Array.isArray(groupsData) && groupsData.length > 0) ? groupsData : DEFAULT_OPTION_GROUPS;
         setOptionGroups(effectiveGroups);
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
         setCategories(Array.isArray(catsData) ? catsData : []);
 
         if (Array.isArray(catsData) && catsData.length > 0) {
@@ -419,11 +414,7 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
 
         // Set default selections for each group
         const defaults: Record<string, number> = {};
-<<<<<<< HEAD
-        validGroups.forEach(group => {
-=======
         effectiveGroups.forEach(group => {
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
           const activeOptions = (group.options || []).filter(o => o.is_active);
           if (activeOptions.length > 0) {
             defaults[group.key] = activeOptions[0].id;
@@ -432,8 +423,7 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
         setSelections(defaults);
 
         // Find default delivery speed id
-<<<<<<< HEAD
-        const deliveryGroup = validGroups.find(g => g.key === 'delivery_speed');
+        const deliveryGroup = effectiveGroups.find(g => g.key === 'delivery_speed');
         if (deliveryGroup && deliveryGroup.options && deliveryGroup.options.length > 0) {
           const std = deliveryGroup.options.find(o => o.key === 'standard' || o.label.toLowerCase().includes('standard')) || deliveryGroup.options[0];
           setSelectedDeliverySpeedId(std.id);
@@ -451,16 +441,6 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
           });
           setSelections(defaults);
         }
-=======
-        const deliveryGroup = effectiveGroups.find(g => g.key === 'delivery_speed');
-        if (deliveryGroup && deliveryGroup.options && deliveryGroup.options.length > 0) {
-          const std = deliveryGroup.options.find(o => o.key === 'standard' || o.label.toLowerCase().includes('standard')) || deliveryGroup.options[0];
-          setSelectedDeliverySpeedId(std.id);
-        }
-      } catch (err) {
-        console.error('Failed to load custom design option groups:', err);
-        setOptionGroups(DEFAULT_OPTION_GROUPS);
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
       } finally {
         if (isMounted) setOptionsLoading(false);
       }
@@ -797,7 +777,6 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
         engraving_font: engravingFont,
         engraving_placement: engravingPlacement,
         has_logo: hasLogo,
-<<<<<<< HEAD
         estimated_price_shown: res.estimated_price_shown || 0,
         status: res.status || 'new',
         description: fullNotes,
@@ -805,19 +784,14 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
         messages: res.messages || [],
         sketches: res.sketches || allSketches,
         gemstones: res.gemstones || formattedStones,
-        stones: res.stones || formattedStones
-=======
         budget_range: projectTier,
         needed_by_date: neededByDate || null,
         special_instructions: fullNotes,
         client_consent_to_feature: clientConsent,
         submission_intent: submissionIntent,
-        client_name: clientName,
-        client_email: clientEmail,
-        client_phone: clientPhone,
+        client_phone: finalContactPhone,
         selected_options: selectedOptionsPayload,
-        stones: isMetalOnly ? [] : stonesList
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
+        stones: isMetalOnly ? [] : (res.stones || formattedStones || stonesList)
       };
 
       // Save into user-scoped localStorage for Client Dashboard

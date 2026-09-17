@@ -21,7 +21,6 @@ import {
   ListPlus
 } from 'lucide-react';
 
-<<<<<<< HEAD
 const DEFAULT_CMS_SERVICES: any[] = [
   {
     id: 1,
@@ -55,8 +54,8 @@ const DEFAULT_CMS_SERVICES: any[] = [
     id: 3,
     slug: 'pendant-cad-design',
     title: 'Pendant CAD Design',
-    subtitle: 'Solitaire Drops, Medallions & Filigree Pendant 3D Models',
-    intro_text: 'High-detail pendant CAD models with integrated bail clearance and backplates.',
+    subtitle: 'Medallions, Solitaire Drops & Halo Pendant 3D Models',
+    intro_text: 'Castable bail clearance and balanced suspension points for perfect hang and skin contact.',
     cta_label: 'Start Pendant CAD Project',
     cta_target: 'custom_design',
     section: 'cad_service',
@@ -86,7 +85,8 @@ const ensureArray = <T,>(r: any): T[] => {
   if (r && Array.isArray(r.results)) return r.results;
   if (r && Array.isArray(r.data)) return r.data;
   return [];
-=======
+};
+
 const slugify = (text: string) => {
   return text
     .toLowerCase()
@@ -94,7 +94,6 @@ const slugify = (text: string) => {
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
 };
 
 export const AdminServicesModule: React.FC = () => {
@@ -116,42 +115,22 @@ export const AdminServicesModule: React.FC = () => {
   // Image Upload / URL Mode
   const [imageInputMode, setImageInputMode] = useState<'upload' | 'url'>('upload');
 
-<<<<<<< HEAD
-  const safePages = Array.isArray(pages) ? pages : [];
-
-  const loadServices = async () => {
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const data = await api.getServicePages();
-      const pageList = ensureArray<ServicePageData>(data);
-      setPages(pageList.length > 0 ? pageList : DEFAULT_CMS_SERVICES);
-    } catch (err: any) {
-      console.warn('Backend service pages fetch error, using defaults:', err);
-      setPages(DEFAULT_CMS_SERVICES);
-=======
   const loadData = async () => {
     setLoading(true);
     setErrorMsg('');
     try {
       const [pagesRes, catsRes] = await Promise.all([
-        api.getServicePages(),
-        api.getCategories(true),
+        api.getServicePages().catch(() => []),
+        api.getCategories(true).catch(() => []),
       ]);
 
-      if (Array.isArray(pagesRes)) {
-        setPages(pagesRes);
-      } else if (pagesRes && Array.isArray((pagesRes as any).results)) {
-        setPages((pagesRes as any).results);
-      } else {
-        setPages([]);
-      }
-
+      const pageList = ensureArray<ServicePageData>(pagesRes);
+      setPages(pageList.length > 0 ? pageList : DEFAULT_CMS_SERVICES);
       setCategories(Array.isArray(catsRes) ? catsRes : []);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to load CMS service pages.');
-      setPages([]);
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
+      console.warn('Backend service pages fetch error, using defaults:', err);
+      setPages(DEFAULT_CMS_SERVICES);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -191,8 +170,6 @@ export const AdminServicesModule: React.FC = () => {
         cta_target: 'custom_design',
         is_published: true,
         display_order: safePages.length + 1,
-<<<<<<< HEAD
-=======
         linked_category: undefined,
         features: [
           { title: '±0.02mm Micron Tolerances', description: 'Calibrated prong heights and wall thickness.', icon: 'Sparkles', display_order: 1 },
@@ -200,7 +177,6 @@ export const AdminServicesModule: React.FC = () => {
           { title: '48-Hour Rapid Delivery', description: 'Rapid turnaround with layered .3DM and .STL files.', icon: 'Clock', display_order: 3 },
         ],
         gallery: [],
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
       });
     }
     setIsModalOpen(true);
@@ -349,7 +325,6 @@ export const AdminServicesModule: React.FC = () => {
       setEditingPage(null);
       await loadData();
     } catch (err: any) {
-<<<<<<< HEAD
       // Fallback local update if backend fails
       setPages(prev => {
         const existing = Array.isArray(prev) ? prev : [];
@@ -376,17 +351,11 @@ export const AdminServicesModule: React.FC = () => {
       setSuccessMsg(`Service page "${editingPage.title}" saved.`);
       setIsModalOpen(false);
       setEditingPage(null);
-=======
-      console.error('Error saving CMS page:', err);
-      setModalErrorMsg(err.message || 'Failed to save service page.');
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
     } finally {
       setIsSubmitting(false);
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleDeletePage = async (slug: string, title: string) => {
     if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
     try {
@@ -399,7 +368,6 @@ export const AdminServicesModule: React.FC = () => {
     }
   };
 
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
   const filteredPages = safePages.filter((p) => {
     if (activeSectionFilter === 'all') return true;
     return p.section === activeSectionFilter;
@@ -416,11 +384,7 @@ export const AdminServicesModule: React.FC = () => {
           </div>
           <h2 className="text-2xl font-bold text-slate-900">CAD Services &amp; About Us CMS Pages</h2>
           <p className="text-slate-500 text-xs mt-1">
-<<<<<<< HEAD
-            SuperAdmin CMS dashboard to manage 100% of website service landing pages, titles, hero graphics &amp; features.
-=======
-            SuperAdmin CMS dashboard to manage 100% of website service landing pages, photos, pricing, category links & features.
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
+            SuperAdmin CMS dashboard to manage 100% of website service landing pages, photos, pricing, category links &amp; features.
           </p>
         </div>
 
@@ -477,11 +441,7 @@ export const AdminServicesModule: React.FC = () => {
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-<<<<<<< HEAD
-          About Us ({safePages.filter((p) => p.section === 'about').length})
-=======
           About Us Sections ({safePages.filter((p) => p.section === 'about').length})
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
         </button>
       </div>
 

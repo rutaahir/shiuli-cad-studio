@@ -260,11 +260,8 @@ class Order(models.Model):
     preview_image = models.ImageField(upload_to="custom_orders/previews/", null=True, blank=True)
     admin_review_notes = models.TextField(blank=True)
     quality_approved = models.BooleanField(default=False)
-<<<<<<< HEAD
     download_unlocked = models.BooleanField(default=False)
-=======
     client_consent_to_feature = models.BooleanField(default=False)
->>>>>>> 416c9975038b6e1643d2508bd4b42708dd4db82e
 
     # Settlement Tracking (Stage 13)
     settlement_status = models.CharField(max_length=20, default='pending')
