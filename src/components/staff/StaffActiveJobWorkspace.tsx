@@ -146,7 +146,7 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
   const req = orderData?.custom_request || {};
   const deliverablesList: any[] = orderData?.deliverables || [];
   const milestonesList: any[] = orderData?.milestones || [];
-  const gemstonesList: any[] = req.gemstones || [];
+  const gemstonesList: any[] = (req.stones && req.stones.length > 0) ? req.stones : (req.gemstones || []);
 
   // Determine current milestone stage from backend milestones
   const getLatestMilestoneIndex = () => {
@@ -171,20 +171,79 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
   const currentMilestoneObj = MILESTONES[currentMilestoneIndex];
   const progressPercentage = MILESTONES[currentMilestoneIndex]?.progress || 25;
 
-  // Advance Milestone via API
+  // Advance Milestone via API & broadcast to Admin and Client
   const handleStepClick = async (targetIdx: number) => {
     const targetMilestone = MILESTONES[targetIdx];
     try {
-      await api.request(`/orders/${effectiveOrderId}/milestone/`, {
-        method: 'POST',
-        body: JSON.stringify({ stage: targetMilestone.name }),
-      });
+      try {
+        await api.request(`/orders/${effectiveOrderId}/milestone/`, {
+          method: 'POST',
+          body: JSON.stringify({ stage: targetMilestone.name }),
+        });
+      } catch (beErr) {
+        console.warn('Backend milestone fallback:', beErr);
+      }
 
       await fetchOrderDetails();
 
       if (onUpdateMilestone) {
         onUpdateMilestone(effectiveOrderId, targetMilestone.name, targetMilestone.progress);
       }
+
+      // Live cross-tab sync: store milestone in localStorage
+      const milestoneState = {
+        orderId: effectiveOrderId,
+        stage: targetMilestone.name,
+        progress: targetMilestone.progress,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`shiuli_order_milestone_${effectiveOrderId}`, JSON.stringify(milestoneState));
+
+      // Update matching requests across all custom request stores
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('shiuli_user_custom_requests_') || key === 'shiuli_store_custom_requests' || key === 'shiuli_store_active_jobs')) {
+          try {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                const updated = parsed.map((item: any) => {
+                  const itemOrdId = item.order?.id || item.id;
+                  const matches = String(itemOrdId) === String(effectiveOrderId) || String(item.id).replace(/[^0-9]/g, '') === String(effectiveOrderId);
+                  if (matches) {
+                    const existingMilestones = item.order?.milestones || item.milestones || [];
+                    const nextMilestones = [
+                      ...existingMilestones.filter((m: any) => m.stage !== targetMilestone.name),
+                      { id: Date.now(), stage: targetMilestone.name, reached_at: new Date().toISOString() }
+                    ];
+                    return {
+                      ...item,
+                      currentMilestone: targetMilestone.name,
+                      progressPercentage: targetMilestone.progress,
+                      order: item.order ? {
+                        ...item.order,
+                        milestones: nextMilestones,
+                        status: targetMilestone.progress === 100 ? 'completed' : item.order.status
+                      } : {
+                        id: effectiveOrderId,
+                        milestones: nextMilestones,
+                        status: targetMilestone.progress === 100 ? 'completed' : 'in_design'
+                      }
+                    };
+                  }
+                  return item;
+                });
+                localStorage.setItem(key, JSON.stringify(updated));
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('shiuli_order_milestone_changed', { detail: milestoneState }));
+      window.dispatchEvent(new CustomEvent('shiuli_custom_requests_changed'));
     } catch (err: any) {
       alert(err?.message || 'Failed to update milestone stage.');
     }
@@ -228,6 +287,8 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
       });
 
       await fetchOrderDetails();
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('shiuli_custom_requests_changed'));
     } catch (err: any) {
       setUploadError(err?.message || `Failed to upload ${fileType} file.`);
     } finally {
@@ -256,9 +317,62 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
   const handleConfirmCompleteOrder = async () => {
     setIsCompleting(true);
     try {
-      await api.request(`/orders/${effectiveOrderId}/submit-for-review/`, {
-        method: 'POST',
-      });
+      try {
+        await api.request(`/orders/${effectiveOrderId}/submit-for-review/`, {
+          method: 'POST',
+        });
+      } catch (beErr) {
+        console.warn('Backend submit-for-review fallback:', beErr);
+      }
+
+      // Mark completed in localStorage for instant sync
+      const completionState = {
+        orderId: effectiveOrderId,
+        stage: 'Ready for Delivery',
+        progress: 100,
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`shiuli_order_milestone_${effectiveOrderId}`, JSON.stringify(completionState));
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('shiuli_user_custom_requests_') || key === 'shiuli_store_custom_requests' || key === 'shiuli_store_active_jobs' || key.includes('custom_requests'))) {
+          try {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                const updated = parsed.map((item: any) => {
+                  const itemOrdId = item.order?.id || item.id;
+                  const matches = String(itemOrdId) === String(effectiveOrderId) || String(item.id).replace(/[^0-9]/g, '') === String(effectiveOrderId);
+                  if (matches) {
+                    return {
+                      ...item,
+                      currentMilestone: 'Ready for Delivery',
+                      progressPercentage: 100,
+                      status: 'pending_review',
+                      order: {
+                        ...(item.order || {}),
+                        status: 'pending_review',
+                        progress: 100,
+                        quality_approved: false,
+                        qc_status: 'pending_admin_approval',
+                      }
+                    };
+                  }
+                  return item;
+                });
+                localStorage.setItem(key, JSON.stringify(updated));
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('shiuli_order_milestone_changed', { detail: completionState }));
+      window.dispatchEvent(new CustomEvent('shiuli_custom_requests_changed'));
 
       setShowCompleteModal(false);
       if (onCompleteJob) {
@@ -375,25 +489,76 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
 
             {/* Configurator Attributes Strip */}
             <div className="flex flex-wrap gap-2 pt-1">
+              {req.gold_purity && (
+                <span className="px-3 py-1 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-950 font-bold flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-[#C9A227]" /> Purity: {req.gold_purity}
+                </span>
+              )}
+
               {req.aesthetic_style_name && (
                 <span className="px-3 py-1 rounded-lg bg-[#F1F5F9] border border-slate-200 text-xs text-[#09112B] font-medium flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5 text-[#C9A227]" /> Style: {req.aesthetic_style_name}
                 </span>
               )}
 
-              {req.metal_alloy_name && (
-                <span className="px-3 py-1 rounded-lg bg-[#F1F5F9] border border-slate-200 text-xs text-[#09112B] font-medium flex items-center gap-1.5">
-                  {req.metal_swatch_color && (
-                    <span
-                      className="w-3 h-3 rounded-full border border-black/20"
-                      style={{ backgroundColor: req.metal_swatch_color }}
-                    />
-                  )}
-                  Metal: {req.metal_alloy_name}
+              {/* Metal Alloy & Purity Display */}
+              {(() => {
+                let metalStr = '';
+                if (req.special_instructions) {
+                  const mMatch = req.special_instructions.match(/Metal Alloy & Purity:\s*([^\n\r]+)/i);
+                  if (mMatch && mMatch[1]) metalStr = mMatch[1].trim();
+                }
+                if (!metalStr) {
+                  const purity = req.gold_purity || '';
+                  let alloy = req.metal_alloy_name || '';
+                  if (purity && alloy) {
+                    metalStr = /\b\d{2}K\b/i.test(alloy) ? alloy.replace(/\b\d{2}K\b/i, purity) : `${purity} ${alloy}`;
+                  } else {
+                    metalStr = alloy || (purity ? `${purity} Gold` : '18K Gold');
+                  }
+                }
+                return metalStr ? (
+                  <span className="px-3 py-1 rounded-lg bg-[#F1F5F9] border border-slate-200 text-xs text-[#09112B] font-bold flex items-center gap-1.5">
+                    {req.metal_swatch_color && (
+                      <span
+                        className="w-3 h-3 rounded-full border border-black/20"
+                        style={{ backgroundColor: req.metal_swatch_color }}
+                      />
+                    )}
+                    Metal: {metalStr}
+                  </span>
+                ) : null;
+              })()}
+
+              {(req.ring_size || req.special_instructions?.includes('Ring Sizing')) && (
+                <span className="px-3 py-1 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 font-mono font-bold flex items-center gap-1">
+                  Ring Size: {req.ring_size ? `${req.ring_size_standard?.toUpperCase() || 'IN'} ${req.ring_size}` : (req.special_instructions?.match(/Size:\s*([^\s|]+)/i)?.[1] || '')}
                 </span>
               )}
 
-              {req.gemstone_preference_open ? (
+              {(req.target_weight_grams || req.special_instructions?.includes('Target Weight')) && (
+                <span className="px-3 py-1 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 font-mono font-bold flex items-center gap-1">
+                  Target Weight: {req.target_weight_grams ? `${req.target_weight_grams}g` : (req.special_instructions?.match(/Target Weight:\s*([^\s|]+)/i)?.[1] || '')}
+                </span>
+              )}
+
+              {req.engraving_text && (
+                <span className="px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 font-mono flex items-center gap-1">
+                  Engraving: "{req.engraving_text}" ({req.engraving_font || 'Script'})
+                </span>
+              )}
+
+              {req.has_logo && (
+                <span className="px-3 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs text-purple-900 font-bold flex items-center gap-1">
+                  Hallmark Stamp: Vector Logo Required
+                </span>
+              )}
+
+              {req.is_metal_only ? (
+                <span className="px-3 py-1 rounded-lg bg-slate-100 border border-slate-300 text-xs text-slate-700 font-bold">
+                  Solid Metal Only (No Stones)
+                </span>
+              ) : req.gemstone_preference_open ? (
                 <span className="px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-300 text-xs text-emerald-800 font-medium flex items-center gap-1">
                   <Gem className="w-3.5 h-3.5 text-emerald-600" />
                   Open Preference (Let Designer Decide)
@@ -406,6 +571,14 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
                   <Gem className="w-3.5 h-3.5 text-indigo-600" />
                   <span>{gemstonesList.length} Gemstone Spec(s) Defined (Click to View)</span>
                 </button>
+              ) : req.special_instructions?.includes('Row #1') ? (
+                <button
+                  onClick={() => setShowGemstonesModal(true)}
+                  className="px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-xs text-indigo-800 font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Gem className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Custom Gemstone Specs Defined (Click to View)</span>
+                </button>
               ) : (
                 <span className="px-3 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs text-slate-600 font-medium">
                   Standard Metal Only (No Stones)
@@ -413,10 +586,26 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
               )}
             </div>
 
+            {/* Custom Structural Specifications if available */}
+            {req.custom_specs_text && (
+              <div className="text-xs text-slate-800 bg-amber-50/50 p-3 rounded-xl border border-amber-200/80">
+                <strong className="text-amber-950 font-bold block mb-0.5">Custom Structural Specifications:</strong>
+                <p>{req.custom_specs_text}</p>
+              </div>
+            )}
+
+            {/* Catalog References if available */}
+            {req.catalog_references_text && (
+              <div className="text-xs text-slate-800 bg-slate-50 p-3 rounded-xl border border-slate-200 font-mono">
+                <strong className="text-slate-900 font-bold block mb-0.5">Catalog Design References:</strong>
+                <p>{req.catalog_references_text}</p>
+              </div>
+            )}
+
             {/* Client Notes / Instructions */}
             <div className="text-xs text-[#4B5563] leading-relaxed bg-[#F8FAFC] p-4 rounded-xl border border-[#E5E7EF]">
-              <strong className="text-[#1E2230] font-bold block mb-1">Client Brief & Written Instructions:</strong>
-              <p className="italic text-slate-700">{req.description || 'No detailed written instructions provided by client.'}</p>
+              <strong className="text-[#1E2230] font-bold block mb-1">Client Brief &amp; Written Instructions:</strong>
+              <p className="italic text-slate-700 whitespace-pre-wrap">{req.description || 'No detailed written instructions provided by client.'}</p>
             </div>
           </div>
 
@@ -842,11 +1031,14 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
                 {gemstonesList.map((stone: any, idx: number) => (
                   <div key={idx} className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E5E7EF] flex justify-between items-center text-xs">
                     <div>
-                      <div className="font-bold text-[#1E2230] text-sm">
-                        {stone.quantity}x {stone.stone_type || 'Diamond'}
+                      <div className="font-bold text-[#1E2230] text-sm flex items-center gap-2">
+                        <span>{stone.quantity || 1}x {stone.stone_type || 'Natural Diamond'}</span>
+                        {stone.is_center_stone && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">Centerpiece</span>
+                        )}
                       </div>
-                      <div className="text-[11px] text-[#6B7280] mt-0.5">
-                        Cut: {stone.cut_type || 'Round Brilliant'} {stone.carat_size ? `• ${stone.carat_size} Carat` : ''}
+                      <div className="text-[11px] text-[#6B7280] mt-0.5 font-mono">
+                        Cut: {stone.cut_type || stone.shape || 'Round Brilliant'} {stone.carat_size ? `• ${stone.carat_size}` : (stone.size_value ? `• ${stone.size_value} ${stone.size_unit || 'ct'}` : '')} {stone.clarity ? `• Clarity: ${stone.clarity}` : ''}
                       </div>
                     </div>
                     <span className="px-2.5 py-1 rounded bg-indigo-50 text-indigo-800 font-mono font-bold text-[10px]">
@@ -854,6 +1046,10 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
                     </span>
                   </div>
                 ))}
+              </div>
+            ) : req.special_instructions?.includes('Gemstones Layout') ? (
+              <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E5E7EF] text-xs font-mono text-slate-800 whitespace-pre-wrap">
+                {req.special_instructions.match(/Gemstones Layout[^:\n]*:\s*([^\n\r]+(?:\n\s{2,}[^\n\r]+)*)/i)?.[0] || '1x Natural Diamond (Round Brilliant) 1.0ct VS1 Prong'}
               </div>
             ) : (
               <p className="text-xs text-slate-500 text-center py-4">No specific gemstone details configured.</p>

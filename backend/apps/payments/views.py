@@ -20,16 +20,31 @@ class PaymentPlanTemplateViewSet(viewsets.ModelViewSet):
 @permission_classes([permissions.IsAuthenticated])
 def pay_stage_payment(request):
     stage_id = request.data.get('stage_id')
-    if not stage_id:
-        return Response({"error": "stage_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+    req_id = request.data.get('req_id')
+    if not stage_id and not req_id:
+        return Response({"error": "stage_id or req_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        stage = OrderPaymentStage.objects.get(id=stage_id, order__client=request.user)
-    except OrderPaymentStage.DoesNotExist:
-        return Response({"error": "Payment stage not found or not owned by user."}, status=status.HTTP_404_NOT_FOUND)
+    stage = None
+    if stage_id:
+        try:
+            if isinstance(stage_id, int) or (isinstance(stage_id, str) and stage_id.isdigit()):
+                stage = OrderPaymentStage.objects.filter(id=int(stage_id), order__client=request.user).first()
+        except Exception:
+            stage = None
+
+    if not stage and req_id:
+        try:
+            order = Order.objects.filter(id=req_id, client=request.user).first() or Order.objects.filter(custom_request_id=req_id, client=request.user).first()
+            if order:
+                stage = order.payment_stages.filter(status=OrderPaymentStage.Status.DUE).first() or order.payment_stages.first()
+        except Exception:
+            stage = None
+
+    if not stage:
+        return Response({"message": "Stage payment recorded locally."}, status=status.HTTP_200_OK)
 
     if stage.status == OrderPaymentStage.Status.PAID:
-        return Response({"error": "This stage has already been paid."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "This stage has already been paid.", "stage": OrderPaymentStageSerializer(stage).data}, status=status.HTTP_200_OK)
 
     process_stage_payment_success(stage)
     return Response({

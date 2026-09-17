@@ -7,11 +7,17 @@ class User(AbstractUser):
         STAFF = "staff", "CAD Designer"
         ADMIN = "admin", "Super Admin"
 
+    email = models.EmailField(unique=True, error_messages={'unique': 'An account with this email address already exists.'})
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.CLIENT)
     phone_number = models.CharField(max_length=20, blank=True)
     profile_photo = models.ImageField(upload_to="profiles/", blank=True, null=True)
     is_active_staff = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"

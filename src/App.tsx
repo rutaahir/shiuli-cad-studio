@@ -141,7 +141,9 @@ function getInitialRouteState() {
   if (path === '/blog') return { page: 'blog' as PageId, tab: undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
   if (path === '/contact') return { page: 'contact' as PageId, tab: undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
   if (path.startsWith('/download/')) return { page: 'secure-download' as PageId, tab: undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
-  if (path === '/account') return { page: 'account' as PageId, tab: undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
+  if (path === '/orders') return { page: 'account' as PageId, tab: 'orders', category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
+  if (path === '/my-submissions') return { page: 'account' as PageId, tab: 'custom', category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
+  if (path === '/account') return { page: 'account' as PageId, tab: tab || undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
 
   return {
     page: 'home' as PageId,
@@ -280,8 +282,17 @@ function MainApp() {
       url = '/blog';
     } else if (page === 'contact') {
       url = '/contact';
+    } else if (page === 'orders') {
+      url = '/orders';
+      setInitialSubTab('orders');
+      page = 'account';
+    } else if (page === ('my-submissions' as any)) {
+      url = '/account?tab=custom';
+      setInitialSubTab('custom');
+      page = 'account';
     } else if (page === 'account') {
-      url = '/account';
+      url = extraId ? `/account?tab=${encodeURIComponent(extraId)}` : '/account';
+      if (extraId) setInitialSubTab(extraId);
     } else if (page === 'admin') {
       url = extraId ? `/admin?tab=${encodeURIComponent(extraId)}` : '/admin';
       if (extraId) setInitialSubTab(extraId);
@@ -341,6 +352,19 @@ function MainApp() {
           license === 'commercial'
             ? Math.round(updated[index].product.price * 1.8)
             : updated[index].product.price;
+      }
+      return updated;
+    });
+  };
+
+  const handleUpdateQuantity = (index: number, quantity: number) => {
+    setCartItems((prev) => {
+      if (quantity <= 0) {
+        return prev.filter((_, i) => i !== index);
+      }
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], quantity };
       }
       return updated;
     });
@@ -521,13 +545,14 @@ function MainApp() {
             <ContactPage onNavigate={handleNavigate} />
           )}
 
-          {currentPage === 'account' && (
+          {(currentPage === 'account' || (currentPage as any) === 'my-submissions') && (
             <ClientDashboardPage
               onNavigate={handleNavigate}
               userEmail={user?.email || 'client@shiuli.com'}
               wishlistIds={wishlistIds}
               onRemoveWishlist={handleToggleWishlist}
               onAddToCart={handleAddToCart}
+              initialTab={(initialSubTab as any) || 'custom'}
             />
           )}
 
@@ -548,6 +573,7 @@ function MainApp() {
         items={cartItems}
         onRemoveItem={handleRemoveFromCart}
         onUpdateLicense={handleUpdateLicense}
+        onUpdateQuantity={handleUpdateQuantity}
         onClearCart={handleClearCart}
         onNavigate={handleNavigate}
       />

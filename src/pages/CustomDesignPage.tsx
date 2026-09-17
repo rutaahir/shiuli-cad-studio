@@ -9,6 +9,7 @@ import {
 import { useCatalog, BackendProduct } from '../hooks/useCatalog';
 import { PRODUCTS } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
+import { appStore } from '../services/store';
 import {
   Sparkles,
   Upload,
@@ -43,7 +44,7 @@ import confetti from 'canvas-confetti';
 
 interface CustomDesignPageProps {
   initialProductId?: string;
-  onNavigate: (page: PageId) => void;
+  onNavigate: (page: PageId, extraId?: string) => void;
 }
 
 interface SelectedCatalogRef {
@@ -71,6 +72,84 @@ const RING_SIZE_CONVERSION_TABLE = [
   { us: '10.5', uk: 'U 1/2', in_hk: '22', eu: '63', inside_mm: '20.2 mm' },
   { us: '11', uk: 'V 1/2', in_hk: '23', eu: '64.5', inside_mm: '20.6 mm' },
   { us: '12', uk: 'Y', in_hk: '25', eu: '67.5', inside_mm: '21.4 mm' },
+];
+
+const DEFAULT_OPTION_GROUPS: any[] = [
+  {
+    id: 1,
+    key: 'metal',
+    label: 'Metal Alloy Selection',
+    display_type: 'swatch',
+    options: [
+      { id: 101, key: '18k_yellow_gold', label: '18K Yellow Gold', swatch_color: '#E5C158', is_active: true },
+      { id: 102, key: '14k_yellow_gold', label: '14K Yellow Gold', swatch_color: '#F0D478', is_active: true },
+      { id: 103, key: '18k_white_gold', label: '18K White Gold', swatch_color: '#E0E3E6', is_active: true },
+      { id: 104, key: '18k_rose_gold', label: '18K Rose Gold', swatch_color: '#E8A398', is_active: true },
+      { id: 105, key: 'platinum_950', label: 'Platinum 950', swatch_color: '#E5E4E2', is_active: true },
+      { id: 106, key: 'silver_925', label: 'Sterling Silver 925', swatch_color: '#D8D8D8', is_active: true },
+    ]
+  },
+  {
+    id: 2,
+    key: 'gold_purity',
+    label: 'Gold Purity Standard',
+    display_type: 'pill',
+    options: [
+      { id: 201, key: '18k', label: '18K Gold (750)', is_active: true },
+      { id: 202, key: '14k', label: '14K Gold (585)', is_active: true },
+      { id: 203, key: '22k', label: '22K Gold (916)', is_active: true },
+      { id: 204, key: '10k', label: '10K Gold (417)', is_active: true },
+      { id: 205, key: '24k', label: '24K Pure Gold', is_active: true },
+    ]
+  },
+  {
+    id: 3,
+    key: 'design_style',
+    label: 'Aesthetic & Setting Architecture',
+    display_type: 'card',
+    options: [
+      { id: 301, key: 'solitaire', label: 'Solitaire Focus', description: 'Single prominent center stone focus with clean classic lines', is_active: true },
+      { id: 302, key: 'halo', label: 'Halo Surround', description: 'Center stone encircled by high-brilliance accent pave diamonds', is_active: true },
+      { id: 303, key: 'vintage', label: 'Vintage Filigree & Milgrain', description: 'Hand-carved vintage lace filigree with delicate milgrain borders', is_active: true },
+      { id: 304, key: 'modern', label: 'Modern Minimalist', description: 'Sleek architectural lines, bezel/tension settings, contemporary profile', is_active: true },
+      { id: 305, key: 'cathedral', label: 'Cathedral Arch', description: 'Elevated center head supported by elegant graceful metal arches', is_active: true },
+      { id: 306, key: 'articulated', label: 'Multi-Stone Articulated', description: 'Interlocking multi-part links or multi-stone cluster composition', is_active: true },
+    ]
+  },
+  {
+    id: 4,
+    key: 'ring_type',
+    label: 'Ring Style Profile',
+    display_type: 'pill',
+    options: [
+      { id: 401, key: 'engagement', label: 'Engagement Ring', is_active: true },
+      { id: 402, key: 'eternity', label: 'Eternity Band', is_active: true },
+      { id: 403, key: 'cocktail', label: 'Statement / Cocktail Ring', is_active: true },
+      { id: 404, key: 'mens_signet', label: 'Men\'s Signet Ring', is_active: true },
+      { id: 405, key: 'stackable', label: 'Stackable Band', is_active: true },
+    ]
+  },
+  {
+    id: 5,
+    key: 'cad_file_format',
+    label: 'Required CAD Output Format',
+    display_type: 'select',
+    options: [
+      { id: 501, key: 'standard_3dm_stl', label: 'Rhino 8 Native .3DM + Watertight Solid .STL + 4K Renders', description: 'Recommended for 3D Printing & Master Casting', is_active: true },
+      { id: 502, key: 'matrix_gold', label: 'MatrixGold / CounterSketch .3DM Pack', is_active: true },
+      { id: 503, key: 'stl_only', label: 'High-Res Solid STL Mesh Only', is_active: true },
+    ]
+  },
+  {
+    id: 6,
+    key: 'delivery_speed',
+    label: 'CAD Delivery Turnaround',
+    display_type: 'select',
+    options: [
+      { id: 601, key: 'standard', label: 'Standard Atelier Delivery (24-48 Hours)', is_active: true },
+      { id: 602, key: 'rush', label: 'Rush Express Delivery (12 Hours)', is_active: true },
+    ]
+  }
 ];
 
 export const CustomDesignPage: React.FC<CustomDesignPageProps> = ({
@@ -220,7 +299,7 @@ export const CustomDesignPage: React.FC<CustomDesignPageProps> = ({
     }
   }, [initialProductId, availableCatalogProducts]);
 
-  // Load Option Groups & Categories from Backend
+  // Load Option Groups & Categories from Backend with Fallbacks
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
@@ -233,33 +312,47 @@ export const CustomDesignPage: React.FC<CustomDesignPageProps> = ({
 
         if (!isMounted) return;
 
-        setOptionGroups(Array.isArray(groupsData) ? groupsData : []);
+        const validGroups = (Array.isArray(groupsData) && groupsData.length > 0) ? groupsData : DEFAULT_OPTION_GROUPS;
+        setOptionGroups(validGroups);
         setCategories(Array.isArray(catsData) ? catsData : []);
 
         if (Array.isArray(catsData) && catsData.length > 0) {
-          setSelectedCategoryId(catsData[0].id);
+          const initialMatch = catsData.find((c: any) => 
+            c.slug?.toLowerCase() === 'rings' || 
+            c.name?.toLowerCase().includes('ring')
+          ) || catsData[0];
+          setSelectedCategoryId(initialMatch.id);
         }
 
         // Set default selections for each group
-        if (Array.isArray(groupsData)) {
+        const defaults: Record<string, number> = {};
+        validGroups.forEach(group => {
+          const activeOptions = (group.options || []).filter(o => o.is_active);
+          if (activeOptions.length > 0) {
+            defaults[group.key] = activeOptions[0].id;
+          }
+        });
+        setSelections(defaults);
+
+        // Find default delivery speed id
+        const deliveryGroup = validGroups.find(g => g.key === 'delivery_speed');
+        if (deliveryGroup && deliveryGroup.options && deliveryGroup.options.length > 0) {
+          const std = deliveryGroup.options.find(o => o.key === 'standard' || o.label.toLowerCase().includes('standard')) || deliveryGroup.options[0];
+          setSelectedDeliverySpeedId(std.id);
+        }
+      } catch (err) {
+        console.error('Failed to load custom design option groups:', err);
+        if (isMounted) {
+          setOptionGroups(DEFAULT_OPTION_GROUPS);
           const defaults: Record<string, number> = {};
-          groupsData.forEach(group => {
+          DEFAULT_OPTION_GROUPS.forEach(group => {
             const activeOptions = (group.options || []).filter(o => o.is_active);
             if (activeOptions.length > 0) {
               defaults[group.key] = activeOptions[0].id;
             }
           });
           setSelections(defaults);
-
-          // Find default delivery speed id
-          const deliveryGroup = groupsData.find(g => g.key === 'delivery_speed');
-          if (deliveryGroup && deliveryGroup.options && deliveryGroup.options.length > 0) {
-            const std = deliveryGroup.options.find(o => o.key === 'standard' || o.label.toLowerCase().includes('standard')) || deliveryGroup.options[0];
-            setSelectedDeliverySpeedId(std.id);
-          }
         }
-      } catch (err) {
-        console.error('Failed to load custom design option groups:', err);
       } finally {
         if (isMounted) setOptionsLoading(false);
       }
@@ -394,44 +487,253 @@ export const CustomDesignPage: React.FC<CustomDesignPageProps> = ({
         };
       });
 
-      // Format catalog references into instructions text
-      let fullNotes = specialInstructions;
-      if (selectedCatalogProducts.length > 0) {
-        const catRefsText = selectedCatalogProducts.map(p => `[Ref SKU: ${p.id} - ${p.title}]`).join(', ');
-        fullNotes = `${fullNotes ? fullNotes + '\n' : ''}Catalog References: ${catRefsText}`;
+      // Find selected metal, purity & style labels
+      const metalGroup = optionGroups.find(g => g.key === 'metal');
+      const purityGroup = optionGroups.find(g => g.key === 'gold_purity');
+      const styleGroup = optionGroups.find(g => g.key === 'design_style');
+
+      const selectedMetalOpt = metalGroup?.options?.find(o => o.id === selections['metal']);
+      const selectedPurityOpt = purityGroup?.options?.find(o => o.id === selections['gold_purity']);
+      const selectedStyleOpt = styleGroup?.options?.find(o => o.id === selections['design_style']);
+
+      const metalNameStr = selectedMetalOpt
+        ? (isGoldSelected && selectedPurityOpt ? `${selectedPurityOpt.label} ${selectedMetalOpt.label}` : selectedMetalOpt.label)
+        : '18K Yellow Gold';
+      const styleNameStr = selectedStyleOpt ? selectedStyleOpt.label : 'Bespoke Custom CAD';
+      const swatchColor = selectedMetalOpt?.swatch_color || '#E5C158';
+
+      // Build comprehensive specification summary text
+      const specLines: string[] = [];
+      specLines.push(`=== 3D CAD MASTER SPECIFICATION BRIEF ===`);
+      specLines.push(`Category: ${selectedCategory.toUpperCase()}`);
+
+      if (selectedCategory === 'rings') {
+        specLines.push(`Ring Sizing: ${ringSizeStandard} Standard | Size: ${ringSize} | Target Weight: ${targetWeightGrams}g`);
+      } else if (selectedCategory === 'pendants') {
+        specLines.push(`Pendant Dimensions: ${heightMm || 'N/A'}mm (H) x ${widthMm || 'N/A'}mm (W) | Chain: ${chainLength}`);
+      } else if (selectedCategory === 'earrings') {
+        specLines.push(`Earring Architecture: ${heightMm || 'N/A'}mm Drop/Stud | Backing: ${earringBacking}`);
+      } else if (selectedCategory === 'bracelets') {
+        specLines.push(`Wrist Specs: ${wristCircumference || 'N/A'} | Style: ${braceletStyle}`);
+      } else if (customSpecsText) {
+        specLines.push(`Custom Structural Specs: ${customSpecsText}`);
       }
 
+      specLines.push(`Metal Alloy & Purity: ${metalNameStr}`);
+      specLines.push(`Design Style: ${styleNameStr}`);
+
+      if (isMetalOnly) {
+        specLines.push(`Gemstone Setup: Solid Metal Design (No Stones)`);
+      } else if (stonesList.length > 0) {
+        specLines.push(`Gemstones Layout (${stonesList.length} Row/Group):`);
+        stonesList.forEach((s, idx) => {
+          specLines.push(`  Row #${idx + 1}: ${s.quantity}x ${s.stone_type} (${s.shape}), ${s.size_value} ${s.size_unit}, ${s.clarity}, Setting: ${s.setting_style} ${s.is_center_stone ? '[MAIN CENTERPIECE]' : ''}`);
+        });
+      }
+
+      if (engravingText) {
+        specLines.push(`Engraving: "${engravingText}" (${engravingFont} Font, ${engravingPlacement})`);
+      }
+      if (hasLogo) {
+        specLines.push(`Hallmark Vector Logo Stamp: Yes (Required on 3D geometry)`);
+      }
+
+      if (selectedCatalogProducts.length > 0) {
+        specLines.push(`Catalog References (${selectedCatalogProducts.length}): ${selectedCatalogProducts.map(p => `[SKU #${p.id}: ${p.title}]`).join(', ')}`);
+      }
+
+      if (specialInstructions) {
+        specLines.push(`Special Instructions: ${specialInstructions}`);
+      }
+
+      const fullNotes = specLines.join('\n');
+
+      const mapRingStandard = (std: string) => {
+        if (!std) return 'us';
+        const s = std.toLowerCase();
+        if (s === 'in_hk' || s === 'in' || s === 'hk') return 'in';
+        if (['us', 'uk', 'eu', 'in', 'mm'].includes(s)) return s;
+        return 'us';
+      };
+
+      const finalContactName = clientName.trim() || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user?.username || 'Valued Client');
+      const finalContactPhone = clientPhone.trim() || user?.phone_number || '+91 9876543210';
+      const finalContactEmail = clientEmail.trim() || user?.email || '';
+
+      const matchedCat = categories.find((c: any) =>
+        c.slug?.toLowerCase() === selectedCategory.toLowerCase() ||
+        c.name?.toLowerCase() === selectedCategory.toLowerCase() ||
+        c.name?.toLowerCase().includes(selectedCategory.toLowerCase())
+      );
+      const resolvedCategory = matchedCat ? matchedCat.id : (selectedCategoryId || (categories && categories.length > 0 ? categories[0].id : 1));
+      const parsedWeight = parseFloat(targetWeightGrams);
+      const safeWeight = (!isNaN(parsedWeight) && parsedWeight > 0) ? parsedWeight : null;
+
+      const purityStr = selectedPurityOpt ? selectedPurityOpt.label : (isGoldSelected ? '24K' : '');
+      const catalogRefsString = selectedCatalogProducts.length > 0 
+        ? selectedCatalogProducts.map(p => `[#${p.id}] ${p.title} (${p.category || ''})`).join(', ')
+        : '';
+
       const bodyData = {
-        category: selectedCategoryId,
-        category_group: selectedCategory,
-        ring_size_standard: selectedCategory === 'rings' ? ringSizeStandard : '',
-        ring_size: selectedCategory === 'rings' ? ringSize : '',
-        target_weight_grams: selectedCategory === 'rings' ? targetWeightGrams : '',
-        height_mm: heightMm,
-        width_mm: widthMm,
-        chain_length: chainLength,
-        earring_backing: earringBacking,
-        wrist_circumference: wristCircumference,
-        bracelet_style: braceletStyle,
-        custom_specs_text: customSpecsText,
+        category: resolvedCategory,
+        description: fullNotes,
+        special_instructions: fullNotes,
+        gold_purity: purityStr,
+        contact_email: finalContactEmail,
+        contact_name: finalContactName,
+        contact_phone: finalContactPhone,
+        ring_size_standard: mapRingStandard(ringSizeStandard),
+        ring_size: selectedCategory === 'rings' ? (ringSize || '6.5') : '',
+        target_weight_grams: selectedCategory === 'rings' ? safeWeight : null,
+        height_mm: heightMm || '',
+        width_mm: widthMm || '',
+        chain_length: chainLength || '',
+        earring_backing: earringBacking || '',
+        wrist_circumference: wristCircumference || '',
+        bracelet_style: braceletStyle || '',
+        custom_specs_text: customSpecsText || '',
+        catalog_references_text: catalogRefsString,
         is_metal_only: isMetalOnly,
+        engraving_text: engravingText || '',
+        engraving_font: engravingFont || '',
+        engraving_placement: engravingPlacement || '',
+        has_logo: hasLogo,
+        budget_range: projectTier || '',
+        needed_by_date: neededByDate || null,
+        submission_intent: submissionIntent,
+        selections_data: selectedOptionsPayload,
+        stones_data: isMetalOnly ? [] : stonesList.map(s => ({
+          stone_type: s.stone_type,
+          quantity: Number(s.quantity) || 1,
+          size_value: String(s.size_value || ''),
+          size_unit: s.size_unit || 'carat',
+          clarity: s.clarity || 'VS1',
+          is_center_stone: Boolean(s.is_center_stone),
+        })),
+      };
+
+      let res: any = null;
+      try {
+        res = await api.createCustomRequest(bodyData);
+      } catch (err: any) {
+        console.warn('Primary backend submission failed, attempting failsafe database save...', err);
+        // Failsafe retry with minimal clean payload
+        try {
+          res = await api.createCustomRequest({
+            description: fullNotes,
+            special_instructions: fullNotes,
+            contact_email: finalContactEmail,
+            contact_name: finalContactName,
+            contact_phone: finalContactPhone,
+            ring_size: selectedCategory === 'rings' ? (ringSize || '6.5') : '',
+            ring_size_standard: mapRingStandard(ringSizeStandard),
+            custom_specs_text: customSpecsText || '',
+            catalog_references_text: catalogRefsString,
+            is_metal_only: isMetalOnly,
+            engraving_text: engravingText || '',
+          });
+        } catch (retryErr: any) {
+          console.error('Database persistence failed:', retryErr);
+          throw new Error(retryErr?.message || 'Failed to save order specification to database. Please try again.');
+        }
+      }
+
+      if (!res || !res.id) {
+        throw new Error('Database did not return a valid order ID. Please try again.');
+      }
+
+      const userKey = (user?.email || clientEmail || user?.username || 'anonymous').toLowerCase();
+      const newReqKey = `shiuli_user_custom_requests_${userKey}`;
+      
+      const allSketches: any[] = [
+        ...sketchPreviews.map((url, i) => ({ id: i + 1, image_url: url, image: url })),
+        ...selectedCatalogProducts.map((p, i) => ({ id: 100 + i, image_url: p.image, image: p.image, title: p.title }))
+      ];
+
+      const formattedStones = isMetalOnly ? [] : stonesList.map(s => ({
+        stone_type: s.stone_type,
+        cut_type: s.shape,
+        carat_size: `${s.size_value} ${s.size_unit}`,
+        quantity: s.quantity,
+        setting_style: s.setting_style,
+        clarity: s.clarity,
+        is_center_stone: s.is_center_stone
+      }));
+
+      const newReqItem = {
+        ...res,
+        id: res.id,
+        client_name: finalContactName,
+        contact_name: finalContactName,
+        client_email: finalContactEmail,
+        contact_phone: finalContactPhone,
+        category_name: matchedCat?.name || (selectedCategory ? selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1) : 'Rings'),
+        aesthetic_style_name: styleNameStr,
+        metal_alloy_name: metalNameStr,
+        metal_swatch_color: swatchColor,
+        gold_purity: purityStr,
+        custom_specs_text: customSpecsText || '',
+        catalog_references_text: catalogRefsString,
+        is_metal_only: isMetalOnly,
+        ring_size: ringSize,
+        ring_size_standard: ringSizeStandard,
+        target_weight_grams: targetWeightGrams,
         engraving_text: engravingText,
         engraving_font: engravingFont,
         engraving_placement: engravingPlacement,
         has_logo: hasLogo,
-        budget_range: projectTier,
-        needed_by_date: neededByDate || null,
-        special_instructions: fullNotes,
-        submission_intent: submissionIntent,
-        client_name: clientName,
-        client_email: clientEmail,
-        client_phone: clientPhone,
-        selected_options: selectedOptionsPayload,
-        stones: isMetalOnly ? [] : stonesList
+        estimated_price_shown: res.estimated_price_shown || 0,
+        status: res.status || 'new',
+        description: fullNotes,
+        created_at: res.created_at || new Date().toISOString(),
+        messages: res.messages || [],
+        sketches: res.sketches || allSketches,
+        gemstones: res.gemstones || formattedStones,
+        stones: res.stones || formattedStones
       };
 
-      const res = await api.createCustomRequest(bodyData);
-      setSubmittedTicket(res);
+      // Save into user-scoped localStorage for Client Dashboard
+      let existingUserReqs: any[] = [];
+      try {
+        const stored = localStorage.getItem(newReqKey);
+        if (stored) existingUserReqs = JSON.parse(stored);
+      } catch {}
+      existingUserReqs.unshift(newReqItem);
+      localStorage.setItem(newReqKey, JSON.stringify(existingUserReqs));
+
+      // Also save into global shiuli_store_custom_requests for Admin & Staff realtime visibility
+      let existingStoreReqs: any[] = [];
+      try {
+        const storeRaw = localStorage.getItem('shiuli_store_custom_requests');
+        if (storeRaw) existingStoreReqs = JSON.parse(storeRaw);
+      } catch {}
+      if (!existingStoreReqs.some((r: any) => String(r.id) === String(newReqItem.id))) {
+        existingStoreReqs.unshift(newReqItem);
+        localStorage.setItem('shiuli_store_custom_requests', JSON.stringify(existingStoreReqs));
+      }
+
+      // Also register in appStore for Admin view
+      appStore.addCustomRequest({
+        id: String(newReqItem.id),
+        clientName: newReqItem.client_name,
+        clientEmail: newReqItem.client_email,
+        clientPhone: clientPhone || '',
+        jewelleryType: newReqItem.category_name,
+        metalPreference: metalNameStr,
+        targetBudget: styleNameStr,
+        description: fullNotes,
+        status: 'new',
+        createdAt: new Date().toISOString(),
+        messages: [],
+        gemstones: formattedStones,
+        sketches: allSketches
+      } as any);
+
+      // Dispatch real-time cross-tab events
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('shiuli_custom_requests_changed', { detail: newReqItem }));
+
+      setSubmittedTicket(res || newReqItem);
       setIsSubmitted(true);
       confetti({ particleCount: 140, spread: 90, origin: { y: 0.55 } });
     } catch (err: any) {
@@ -496,10 +798,10 @@ export const CustomDesignPage: React.FC<CustomDesignPageProps> = ({
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => onNavigate('my-submissions')}
+              onClick={() => onNavigate('account', 'custom')}
               className="px-8 py-3.5 btn-gold-luxury font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
             >
-              View My CAD Submissions <ArrowRight className="w-5 h-5" />
+              View My Custom CAD Order & Journey <ArrowRight className="w-5 h-5" />
             </button>
             <button
               onClick={() => {

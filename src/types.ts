@@ -19,7 +19,8 @@ export type PageId =
   | 'login'
   | 'register'
   | 'forgot-password'
-  | 'secure-download';
+  | 'secure-download'
+  | 'orders';
 
 export interface ServicePageFeatureData {
   id: number;
@@ -375,6 +376,20 @@ export interface AvailableJob {
   claimedBy?: string;
   isSecuring?: boolean;
   status: 'available' | 'claimed';
+  rawRequest?: any;
+  gemstones?: any[];
+  sketches?: any[];
+  special_instructions?: string;
+  ring_size?: string;
+  ring_size_standard?: string;
+  target_weight_grams?: string | number;
+  gold_purity?: string;
+  metal_alloy_name?: string;
+  aesthetic_style_name?: string;
+  catalog_references?: any[];
+  catalog_references_text?: string;
+  custom_specs_text?: string;
+  client_name?: string;
 }
 
 export interface StaffActiveJob {

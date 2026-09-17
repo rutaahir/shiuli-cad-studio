@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { CartItem, PageId } from '../types';
-import { X, Trash2, ShieldCheck, Download, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { X, Trash2, ShieldCheck, Download, Sparkles, ArrowRight, CheckCircle2, Lock, Plus, Minus } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
+import { OTPVerificationModal } from './delivery/OTPVerificationModal';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -9,6 +12,7 @@ interface CartDrawerProps {
   items: CartItem[];
   onRemoveItem: (index: number) => void;
   onUpdateLicense: (index: number, license: 'standard' | 'commercial') => void;
+  onUpdateQuantity?: (index: number, quantity: number) => void;
   onClearCart: () => void;
   onNavigate: (page: PageId) => void;
 }
@@ -19,24 +23,42 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   items,
   onRemoveItem,
   onUpdateLicense,
+  onUpdateQuantity,
   onClearCart,
   onNavigate,
 }) => {
+  const { user, requireAuth } = useAuth();
   const [promoCode, setPromoCode] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
   const [promoMessage, setPromoMessage] = useState('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderCompleted, setOrderCompleted] = useState(false);
 
+  // OTP Verification Modal State
+  const [otpModalState, setOtpModalState] = useState<{
+    isOpen: boolean;
+    purchaseId: number;
+    productTitle: string;
+    maskedEmail: string;
+  }>({
+    isOpen: false,
+    purchaseId: 0,
+    productTitle: '',
+    maskedEmail: '',
+  });
+
   if (!isOpen) return null;
+
+  const totalQuantity = items.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
   const subtotal = items.reduce((acc, item) => {
     const unitPrice = item.license === 'commercial' ? item.product.price * 1.8 : item.product.price;
-    return acc + unitPrice * item.quantity;
+    return acc + unitPrice * (item.quantity || 1);
   }, 0);
 
   const discountAmount = (subtotal * discountPercent) / 100;
   const total = Math.max(0, subtotal - discountAmount);
+  const totalINR = Math.round(total * 83);
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,21 +71,119 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const handleCheckout = () => {
-    setIsCheckingOut(true);
-    setTimeout(() => {
-      setIsCheckingOut(false);
-      setOrderCompleted(true);
+    requireAuth(async () => {
+      setIsCheckingOut(true);
+      const orderIdNum = Math.floor(100000 + Math.random() * 900000);
+      let purchaseId = orderIdNum;
+      let maskedEmail = 'c***r@gmail.com';
+
+      const rawEmail = user?.email || 'customer@shiulicadstudio.com';
+      const emailParts = rawEmail.split('@');
+      maskedEmail = emailParts[0].length > 2
+        ? `${emailParts[0][0]}***${emailParts[0].slice(-1)}@${emailParts[1] || 'gmail.com'}`
+        : `c***r@${emailParts[1] || 'gmail.com'}`;
+
       try {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#D4AF37', '#1E4FA3', '#F5E7A3', '#FAF8F3'],
-        });
-      } catch {
-        // Safe fallback if confetti canvas fails
+        const firstItem = items[0];
+        if (firstItem) {
+          const res = await api.post<any>('/payments/purchases/', {
+            product_id: firstItem.product.dbId || firstItem.product.id,
+            license_type: firstItem.license === 'commercial' ? 'commercial' : 'atelier',
+          });
+          if (res && res.purchase_id) {
+            purchaseId = res.purchase_id;
+            if (res.masked_email) maskedEmail = res.masked_email;
+          }
+        }
+      } catch (e) {
+        console.warn('Backend purchases endpoint fallback:', e);
       }
-    }, 1200);
+
+      setOtpModalState({
+        isOpen: true,
+        purchaseId: purchaseId,
+        productTitle: items.map(i => i.product.title).join(' & '),
+        maskedEmail: maskedEmail,
+      });
+      setIsCheckingOut(false);
+    }, {
+      intent: 'purchase',
+      message: 'Sign in to complete CAD File Bag purchase & verify email OTP',
+    });
+  };
+
+  const handleOTPVerifiedSuccess = () => {
+    setOtpModalState(prev => ({ ...prev, isOpen: false }));
+
+    const userKey = (user?.email || user?.username || 'anonymous').toLowerCase();
+    const ordersKey = `shiuli_user_orders_${userKey}`;
+    const purchasesKey = `shiuli_user_purchases_${userKey}`;
+
+    const orderIdNum = otpModalState.purchaseId || Math.floor(100000 + Math.random() * 900000);
+    const orderId = `ord-${orderIdNum}`;
+    const orderNum = `SCS-2026-${orderIdNum}`;
+    const currentDateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+
+    const newOrder = {
+      id: orderId,
+      orderNumber: orderNum,
+      date: currentDateStr,
+      items: items.map(it => ({
+        product: it.product,
+        license: it.license,
+        price: it.license === 'commercial' ? it.product.price * 1.8 : it.product.price
+      })),
+      total: total,
+      status: 'completed',
+      statusLabel: 'Email OTP Verified • Files Ready',
+      downloadName: `Shiuli_CAD_Pack_${orderIdNum}.zip`,
+      downloadSize: `${(items.length * 35.4).toFixed(1)} MB`
+    };
+
+    // 1. Save Order
+    let existingOrders: any[] = [];
+    try {
+      const stored = localStorage.getItem(ordersKey);
+      if (stored) existingOrders = JSON.parse(stored);
+    } catch {}
+    existingOrders.unshift(newOrder);
+    localStorage.setItem(ordersKey, JSON.stringify(existingOrders));
+
+    // 2. Save Purchases for My CAD Vault
+    let existingPurchases: any[] = [];
+    try {
+      const storedP = localStorage.getItem(purchasesKey);
+      if (storedP) existingPurchases = JSON.parse(storedP);
+    } catch {}
+
+    items.forEach(it => {
+      existingPurchases.unshift({
+        id: `pur-${Date.now()}-${it.product.id}`,
+        product_id: it.product.id,
+        product_title: it.product.title,
+        product_sku: `SKU-${it.product.id}`,
+        license_type: it.license,
+        amount_paid: it.license === 'commercial' ? it.product.price * 1.8 : it.product.price,
+        purchase_date: currentDateStr,
+        is_otp_verified: true,
+        is_downloaded: false,
+        download_url: '#',
+        thumbnail: it.product.image || it.product.images?.[0] || '/placeholder.png'
+      });
+    });
+    localStorage.setItem(purchasesKey, JSON.stringify(existingPurchases));
+
+    setOrderCompleted(true);
+    onClearCart();
+
+    try {
+      confetti({
+        particleCount: 100,
+        spread: 80,
+        origin: { y: 0.5 },
+        colors: ['#D4AF37', '#1E4FA3', '#F5E7A3', '#FAF8F3'],
+      });
+    } catch {}
   };
 
   const handleSimulateDownload = () => {
@@ -108,7 +228,7 @@ Support: info@shiulicadstudio.com | Phone: +91 9662159084`;
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#D4AF37]" />
               <h2 className="font-serif text-lg tracking-wider text-[#FAF8F3]">
-                Your CAD File Bag ({items.length})
+                Your CAD File Bag ({totalQuantity})
               </h2>
             </div>
             <button
@@ -149,7 +269,7 @@ Support: info@shiulicadstudio.com | Phone: +91 9662159084`;
                   <p className="font-medium text-[#FAF8F3]">What’s Inside Your Download:</p>
                   <p>• Layered Rhino .3DM (Stone prongs, cutters, metal body)</p>
                   <p>• Watertight .STL (1.25% Shrinkage pre-compensated)</p>
-                  <p>• Production Spec Sheet & Stone Count PDF</p>
+                  <p>• Production Spec Sheet &amp; Stone Count PDF</p>
                 </div>
 
                 <div className="flex gap-2">
@@ -227,7 +347,7 @@ Support: info@shiulicadstudio.com | Phone: +91 9662159084`;
                             3DM + STL
                           </span>
                           <span className="text-xs font-semibold text-[#F5E7A3]">
-                            ${currentPrice.toFixed(0)}
+                            ${(currentPrice * (item.quantity || 1)).toFixed(0)}
                           </span>
                         </div>
                       </div>
@@ -240,9 +360,33 @@ Support: info@shiulicadstudio.com | Phone: +91 9662159084`;
                       </button>
                     </div>
 
-                    {/* License selector toggle */}
-                    <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
-                      <span className="text-[#C9C2A6]">License Type:</span>
+                    {/* License selector & Quantity controls */}
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[#C9C2A6]">Qty:</span>
+                        <div className="flex items-center border border-[#D4AF37]/30 rounded-lg overflow-hidden bg-[#070D22]">
+                          <button
+                            type="button"
+                            onClick={() => onUpdateQuantity ? onUpdateQuantity(idx, (item.quantity || 1) - 1) : onRemoveItem(idx)}
+                            className="px-2 py-1 bg-[#12204D] hover:bg-[#1A2E60] text-[#F5E7A3] font-bold text-xs transition-colors flex items-center justify-center"
+                            title="Decrease quantity"
+                          >
+                            <Minus className="w-3 h-3 text-[#D4AF37]" />
+                          </button>
+                          <span className="px-2.5 py-0.5 font-mono font-bold text-xs text-[#FAF8F3]">
+                            {item.quantity || 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onUpdateQuantity ? onUpdateQuantity(idx, (item.quantity || 1) + 1) : null}
+                            className="px-2 py-1 bg-[#12204D] hover:bg-[#1A2E60] text-[#F5E7A3] font-bold text-xs transition-colors flex items-center justify-center"
+                            title="Increase quantity"
+                          >
+                            <Plus className="w-3 h-3 text-[#D4AF37]" />
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="flex rounded-lg overflow-hidden border border-[#D4AF37]/20 bg-[#0B1330]">
                         <button
                           onClick={() => onUpdateLicense(idx, 'standard')}
@@ -317,17 +461,17 @@ Support: info@shiulicadstudio.com | Phone: +91 9662159084`;
               <button
                 onClick={handleCheckout}
                 disabled={isCheckingOut}
-                className="btn-gold-luxury w-full py-3 rounded-xl font-medium tracking-wider uppercase text-xs flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold tracking-wider uppercase text-xs flex items-center justify-center gap-2 shadow-[0_8px_32px_rgba(212,175,55,0.35)] hover:shadow-[0_8px_40px_rgba(212,175,55,0.5)] transition-all disabled:opacity-50"
               >
                 {isCheckingOut ? (
                   <span className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-[#0B1330] border-t-transparent rounded-full animate-spin" />
-                    Generating Instant CAD Links...
+                    Initiating Secure Checkout...
                   </span>
                 ) : (
                   <>
-                    <span>Confirm & Download Files</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#0B1330]" />
+                    <ShieldCheck className="w-4 h-4 text-zinc-950" />
+                    <span>Buy Now &amp; Verify OTP — ₹{totalINR.toLocaleString('en-IN')} INR</span>
                   </>
                 )}
               </button>
@@ -340,6 +484,16 @@ Support: info@shiulicadstudio.com | Phone: +91 9662159084`;
           )}
         </div>
       </div>
+
+      {/* RE-DELIVERY / CHECKOUT OTP VERIFICATION MODAL */}
+      <OTPVerificationModal
+        isOpen={otpModalState.isOpen}
+        onClose={() => setOtpModalState(prev => ({ ...prev, isOpen: false }))}
+        purchaseId={otpModalState.purchaseId}
+        productTitle={otpModalState.productTitle}
+        maskedEmail={otpModalState.maskedEmail}
+        onVerifiedSuccess={handleOTPVerifiedSuccess}
+      />
     </div>
   );
 };

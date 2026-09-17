@@ -351,6 +351,9 @@ def download_cad_file(request, token):
     # Handle Order deliverables if this token is for a Custom Order
     if token_obj.order:
         order = token_obj.order
+        if not order.download_unlocked:
+            return Response({"error": "Admin has not authorized CAD download for this custom order yet. Please check payment status."}, status=status.HTTP_403_FORBIDDEN)
+
         from apps.custom_orders.models import OrderDeliverable
         deliverable = OrderDeliverable.objects.filter(
             order=order,

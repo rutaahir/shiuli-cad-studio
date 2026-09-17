@@ -70,12 +70,43 @@ class UserSerializer(serializers.ModelSerializer):
 
 class RegisterClientSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
+    email = serializers.EmailField(required=True)
 
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'first_name', 'last_name', 'phone_number']
+        extra_kwargs = {
+            'username': {'required': False},
+        }
+
+    def validate_email(self, value):
+        if not value:
+            raise serializers.ValidationError("Email address is required.")
+        email_clean = value.strip().lower()
+        if User.objects.filter(email__iexact=email_clean).exists():
+            raise serializers.ValidationError("An account with this email address already exists. Please log in instead.")
+        return email_clean
+
+    def validate_username(self, value):
+        if value:
+            username_clean = value.strip()
+            if User.objects.filter(username__iexact=username_clean).exists():
+                raise serializers.ValidationError("This username is already taken.")
+            return username_clean
+        return value
 
     def create(self, validated_data):
+        email = validated_data['email'].strip().lower()
+        validated_data['email'] = email
+        if not validated_data.get('username'):
+            prefix = email.split('@')[0]
+            base_username = prefix
+            counter = 1
+            while User.objects.filter(username__iexact=base_username).exists():
+                base_username = f"{prefix}_{counter}"
+                counter += 1
+            validated_data['username'] = base_username
+
         validated_data['role'] = User.Role.CLIENT
         user = User.objects.create_user(**validated_data)
         return user

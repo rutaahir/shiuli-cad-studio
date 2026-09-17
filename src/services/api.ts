@@ -218,8 +218,10 @@ class ApiClient {
         console.warn('Auto auth initialization skipped:', e);
       }
     }
-
-    let headers = this.getHeaders(options.headers as Record<string, string>);
+    let headers = this.getHeaders(options.headers as Record<string, string>) as Record<string, string>;
+    if (options.body instanceof FormData) {
+      delete headers['Content-Type'];
+    }
 
     try {
       let response = await fetch(url, {
@@ -240,7 +242,7 @@ class ApiClient {
         }
 
         // Retry request with fresh access token
-        headers = this.getHeaders(options.headers as Record<string, string>);
+        headers = this.getHeaders(options.headers as Record<string, string>) as Record<string, string>;
         response = await fetch(url, {
           ...options,
           headers,
@@ -684,6 +686,14 @@ class ApiClient {
     });
   }
 
+  async toggleOrderDownload(orderId: string | number, unlocked?: boolean) {
+    await this.ensureAdminToken();
+    return this.request<any>(`/orders/${orderId}/toggle-download/`, {
+      method: 'POST',
+      body: JSON.stringify(unlocked !== undefined ? { unlocked } : {}),
+    });
+  }
+
   async deleteProduct(slug: string) {
     await this.ensureAdminToken();
     try {
@@ -950,11 +960,15 @@ class ApiClient {
 
   // Dynamic Custom Option Groups & Values
   async getOptionGroups(): Promise<OptionGroupData[]> {
-    return this.request<OptionGroupData[]>('/option-groups/');
+    return this.request<OptionGroupData[]>('/custom-requests/option-groups/').catch(() =>
+      this.request<OptionGroupData[]>('/option-groups/')
+    );
   }
 
   async getOptionValues(): Promise<OptionValueData[]> {
-    return this.request<OptionValueData[]>('/option-values/');
+    return this.request<OptionValueData[]>('/custom-requests/option-values/').catch(() =>
+      this.request<OptionValueData[]>('/option-values/')
+    );
   }
 
   async createOptionGroup(data: Partial<OptionGroupData>): Promise<OptionGroupData> {

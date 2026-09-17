@@ -107,11 +107,15 @@ class CustomRequest(models.Model):
     reference_image = models.ImageField(upload_to="custom_requests/references/", null=True, blank=True)
     description = models.TextField(blank=True)
     contact_name = models.CharField(max_length=100)
+    contact_email = models.EmailField(max_length=255, blank=True)
     contact_phone = models.CharField(max_length=20)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     aesthetic_style = models.ForeignKey(AestheticStyle, null=True, blank=True, on_delete=models.SET_NULL)
     metal_alloy = models.ForeignKey(MetalAlloy, null=True, blank=True, on_delete=models.SET_NULL)
+    gold_purity = models.CharField(max_length=20, blank=True)
     gemstone_preference_open = models.BooleanField(default=False)
+    custom_specs_text = models.TextField(blank=True)
+    catalog_references_text = models.TextField(blank=True)
     
     # Specification extensions
     ring_size = models.CharField(max_length=20, blank=True)
@@ -255,6 +259,7 @@ class Order(models.Model):
     preview_image = models.ImageField(upload_to="custom_orders/previews/", null=True, blank=True)
     admin_review_notes = models.TextField(blank=True)
     quality_approved = models.BooleanField(default=False)
+    download_unlocked = models.BooleanField(default=False)
 
     # Settlement Tracking (Stage 13)
     settlement_status = models.CharField(max_length=20, default='pending')

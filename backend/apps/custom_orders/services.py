@@ -147,6 +147,13 @@ def accept_order(order_id, staff_user):
         order.unassigned_since = None
         order.save()
 
+        # Create initial Work Started milestone
+        from .models import OrderMilestone
+        OrderMilestone.objects.create(
+            order=order,
+            stage='Work Started'
+        )
+
     # OUTSIDE transaction: notify staff pool that job is taken
     notify_order_taken(order, winning_staff=staff_user)
 

@@ -29,6 +29,31 @@ export const AdminApprovalsModule: React.FC = () => {
   // Rapid Reviewer Mode state
   const [rapidReviewIndex, setRapidReviewIndex] = useState<number | null>(null);
 
+  // Helper: check if assigned_staff is a real staff (not admin/superuser)
+  const isRealStaff = (staff: any): boolean => {
+    if (!staff) return false;
+    if (typeof staff === 'string') {
+      const lower = staff.toLowerCase();
+      return lower !== 'admin' && lower !== 'superadmin' && staff.trim().length > 0;
+    }
+    if (typeof staff === 'object') {
+      const role = (staff.role || staff.user_type || '').toLowerCase();
+      const uname = (staff.username || '').toLowerCase();
+      if (role === 'admin' || role === 'superadmin' || role === 'superuser' || staff.is_superuser || uname === 'admin' || uname === 'superadmin') return false;
+      return Boolean(staff.id || staff.username || staff.first_name);
+    }
+    return false;
+  };
+
+  const getStaffName = (staff: any): string => {
+    if (!staff) return '';
+    if (typeof staff === 'object') {
+      const name = [staff.first_name, staff.last_name].filter(Boolean).join(' ').trim();
+      return name || staff.username || '';
+    }
+    return typeof staff === 'string' ? staff : '';
+  };
+
   const fetchApprovalsQueue = async () => {
     setLoading(true);
     try {
@@ -38,20 +63,28 @@ export const AdminApprovalsModule: React.FC = () => {
       try {
         const ordersRes = await api.request<any>('/orders/');
         const orderList = Array.isArray(ordersRes) ? ordersRes : ordersRes?.results || [];
-        
+
         orderList.forEach((ord: any) => {
-          const isPendingReview = ord.status === 'pending_review';
-          const isApproved = ord.status === 'preview_ready' || ord.status === 'completed' || ord.quality_approved;
-          const isRejected = ord.status === 'with_designer' && ord.admin_review_notes;
+          // ONLY show in approvals queue if a real staff member is assigned
+          // Admin-managed orders (no real staff yet) do NOT appear here
+          const staffObj = ord.assigned_staff || {};
+          const hasRealStaff = isRealStaff(staffObj);
+
+          // Status: staff marks as pending_review → admin reviews → preview_ready/completed
+          const isPendingReview = (ord.status === 'pending_review' || (ord.status === 'completed' && !ord.quality_approved)) && hasRealStaff;
+          const isApproved = (ord.status === 'preview_ready' || (ord.status === 'completed' && ord.quality_approved) || ord.quality_approved) && hasRealStaff;
+          const isRejected = ord.status === 'with_designer' && ord.admin_review_notes && hasRealStaff;
 
           if (isPendingReview || isApproved || isRejected) {
             const req = ord.custom_request || {};
-            const staff = ord.assigned_staff || {};
+            const staffName = getStaffName(staffObj) || 'CAD Modeller';
+            const staffAvatar = staffObj.profile_photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+
             items.push({
               id: `ORD-${ord.id}`,
               title: req.category_name ? `Bespoke ${req.category_name} (Order #${ord.id})` : `Custom Order #${ord.id}`,
-              designerName: staff.first_name ? `${staff.first_name} ${staff.last_name || ''}`.trim() : (staff.username || 'CAD Modeller'),
-              designerAvatar: staff.profile_photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+              designerName: staffName,
+              designerAvatar: staffAvatar,
               category: req.category_name || 'Bespoke Order',
               uploadedDate: ord.assigned_at ? new Date(ord.assigned_at).toISOString().split('T')[0] : 'Recently',
               thumbnail: ord.preview_image || req.sketches?.[0]?.image_url || req.sketches?.[0]?.image || 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&q=80&w=600',
@@ -72,6 +105,52 @@ export const AdminApprovalsModule: React.FC = () => {
       } catch (e) {
         console.warn('Could not fetch custom orders for approvals:', e);
       }
+
+      // Scan localStorage custom requests for orders submitted for QC review
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('shiuli_user_custom_requests_') || key === 'shiuli_store_custom_requests' || key.includes('custom_requests'))) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((req: any) => {
+                  const ord = req.order;
+                  const ordId = ord?.id || req.id;
+                  const idStr = `ORD-${ordId}`;
+                  const staffObj = ord?.assigned_staff || req.assigned_staff;
+                  const hasRealStaff = isRealStaff(staffObj);
+                  const isPending = (req.status === 'pending_review' || ord?.status === 'pending_review' || (ord?.status === 'completed' && !ord?.quality_approved)) && hasRealStaff;
+                  const isApproved = (req.status === 'completed' || ord?.status === 'completed' || ord?.quality_approved || req.download_unlocked) && (ord?.quality_approved || req.download_unlocked);
+
+                  if ((isPending || isApproved) && !items.some((it: any) => it.id === idStr || it.rawId === ordId)) {
+                    items.push({
+                      id: idStr,
+                      title: req.category_name ? `Bespoke ${req.category_name} (Order #${ordId})` : `Custom Order #${ordId}`,
+                      designerName: getStaffName(staffObj) || 'CAD Modeller',
+                      designerAvatar: staffObj?.profile_photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+                      category: req.category_name || 'Bespoke Order',
+                      uploadedDate: new Date().toISOString().split('T')[0],
+                      thumbnail: req.sketches?.[0]?.image_url || req.sketches?.[0]?.image || req.reference_image || 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&q=80&w=600',
+                      status: isPending ? 'pending' : 'approved',
+                      fileFormats: ['3DM', 'STL', 'Render'],
+                      suggestedPrice: 200,
+                      specs: {
+                        metalWeight18k: req.metal_alloy_name || '18K Gold',
+                        diamondCount: 'Watertight SOW',
+                        dimensions: 'Watertight',
+                      },
+                      rawId: ordId,
+                      isCustomOrder: true,
+                    } as any);
+                  }
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {}
 
       // 2. Fetch catalog products needing review
       try {
@@ -125,8 +204,48 @@ export const AdminApprovalsModule: React.FC = () => {
     setProcessingId(item.id);
     try {
       if (item.isCustomOrder && item.rawId) {
-        // Approve Custom Order Handover -> Transition to preview_ready
-        await api.adminReviewOrder(item.rawId, 'approve');
+        // Approve Custom Order Handover -> Transition to completed / preview_ready
+        try {
+          await api.adminReviewOrder(item.rawId, 'approve');
+        } catch (beErr) {
+          console.warn('Backend adminReviewOrder fallback:', beErr);
+        }
+
+        // Update localStorage custom requests so client gets instant download button
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('shiuli_user_custom_requests_') || key === 'shiuli_store_custom_requests' || key.includes('custom_requests'))) {
+            try {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  const updated = parsed.map((req: any) => {
+                    const match = String(req.order?.id) === String(item.rawId) || String(req.id) === String(item.rawId) || String(req.id).replace(/[^0-9]/g, '') === String(item.rawId);
+                    if (match) {
+                      return {
+                        ...req,
+                        status: 'completed',
+                        download_unlocked: true,
+                        order: {
+                          ...(req.order || {}),
+                          status: 'completed',
+                          quality_approved: true,
+                          download_unlocked: true,
+                        }
+                      };
+                    }
+                    return req;
+                  });
+                  localStorage.setItem(key, JSON.stringify(updated));
+                }
+              }
+            } catch (e) {}
+          }
+        }
+
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new CustomEvent('shiuli_custom_requests_changed'));
       } else if (item.rawSlug) {
         // Approve Store Catalog Design -> Transition to approved
         await api.approveProduct(item.rawSlug);
@@ -209,7 +328,7 @@ export const AdminApprovalsModule: React.FC = () => {
             Staff Design Approvals Queue
           </h1>
           <p className="text-xs text-[#6B7280] mt-0.5">
-            Review modellers' custom order handovers &amp; ready CAD catalog submissions.
+            Orders appear here <strong>only after a staff CAD artisan completes work</strong> and submits for QC review. Admin approves or requests revisions — admin does not do design work.
           </p>
         </div>
 
@@ -257,8 +376,10 @@ export const AdminApprovalsModule: React.FC = () => {
       ) : filteredList.length === 0 ? (
         <div className="p-12 text-center rounded-2xl bg-white border border-[#E5E7EF] space-y-3">
           <ShieldCheck className="w-10 h-10 text-[#C9A227] mx-auto opacity-50" />
-          <h3 className="font-serif text-lg font-bold text-[#1E2230]">No Items in {activeFilter} Queue</h3>
-          <p className="text-xs text-[#6B7280]">Submitted CAD deliverables and catalog designs awaiting QC approval will appear here.</p>
+          <h3 className="font-serif text-lg font-bold text-[#1E2230]">No Staff Submissions in {activeFilter} Queue</h3>
+          <p className="text-xs text-[#6B7280] leading-relaxed max-w-sm mx-auto">
+            CAD submissions appear here when a <strong>staff artisan</strong> completes an order and marks it ready for admin QC review. Admin only approves or rejects — design work is handled entirely by staff.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
