@@ -487,10 +487,10 @@ export const HowItWorksPage: React.FC<HowItWorksPageProps> = ({ onNavigate }) =>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => onNavigate('pricing')}
+              onClick={() => onNavigate('collections')}
               className="px-8 py-3.5 rounded-full border border-[#D4AF37]/40 text-xs text-[#FAF8F3] uppercase tracking-wider hover:bg-white/5 transition-colors"
             >
-              View Pricing Rates
+              Browse CAD Catalog
             </motion.button>
           </div>
         </RevealOnScroll>

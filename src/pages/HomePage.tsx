@@ -105,58 +105,58 @@ export const HomePage: React.FC<HomePageProps> = ({
         />
 
         {/* Ambient glow orbs */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-[#1E4FA3]/10 blur-[120px] pointer-events-none" style={{ zIndex: 2 }} />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-60 rounded-full bg-[#D4AF37]/08 blur-[80px] pointer-events-none" style={{ zIndex: 2 }} />
+        <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] rounded-full bg-[#FFD700]/12 blur-[140px] pointer-events-none" style={{ zIndex: 2 }} />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-[#2563EB]/15 blur-[130px] pointer-events-none" style={{ zIndex: 2 }} />
 
         {/* HERO CONTENT WITH PARALLAX SCROLL MOTION */}
         <motion.div
-          style={{ y: heroY, opacity: heroOpacity, zIndex: 10, maxWidth: '860px' }}
+          style={{ y: heroY, opacity: heroOpacity, zIndex: 10, maxWidth: '880px' }}
           className="relative flex flex-col items-start pt-36 pb-28 px-6 sm:px-12 lg:px-20 xl:px-28"
         >
           {/* Vertical gold rule */}
           <div className="hero-vert-rule absolute left-0 top-36 bottom-28 w-[2px]"
-               style={{ background: 'linear-gradient(to bottom, transparent, #D4AF37 25%, #D4AF37 75%, transparent)' }} />
+               style={{ background: 'linear-gradient(to bottom, transparent, #FFD700 25%, #FFD700 75%, transparent)' }} />
 
           {/* ROYAL CROWN ORNAMENT */}
           <div className="hero-anim-1 flex items-center gap-4 mb-8">
             <div className="flex items-center gap-2">
-              <div className="h-px w-8 bg-gradient-to-r from-transparent to-[#D4AF37]/60" />
-              <div className="w-1 h-1 rotate-45 bg-[#D4AF37]/70" />
-              <div className="h-px w-16 bg-gradient-to-r from-[#D4AF37]/60 to-[#D4AF37]/20" />
+              <div className="h-px w-8 bg-gradient-to-r from-transparent to-[#FFD700]" />
+              <div className="w-1.5 h-1.5 rotate-45 bg-[#FFD700] shadow-[0_0_6px_#FFD700]" />
+              <div className="h-px w-16 bg-gradient-to-r from-[#FFD700] to-[#FFD700]/30" />
             </div>
-            <svg width="28" height="22" viewBox="0 0 28 22" fill="none" className="hero-crown-glow flex-shrink-0">
-              <path d="M2 20L5 8L10 14L14 2L18 14L23 8L26 20H2Z" fill="none" stroke="#D4AF37" strokeWidth="1.5" strokeLinejoin="round"/>
-              <circle cx="2" cy="8" r="1.5" fill="#D4AF37" opacity="0.8"/>
-              <circle cx="14" cy="2" r="1.5" fill="#F5E7A3"/>
-              <circle cx="26" cy="8" r="1.5" fill="#D4AF37" opacity="0.8"/>
-              <line x1="2" y1="21" x2="26" y2="21" stroke="#D4AF37" strokeWidth="1" opacity="0.5"/>
+            <svg width="30" height="24" viewBox="0 0 28 22" fill="none" className="hero-crown-glow flex-shrink-0 filter drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]">
+              <path d="M2 20L5 8L10 14L14 2L18 14L23 8L26 20H2Z" fill="none" stroke="#FFD700" strokeWidth="1.8" strokeLinejoin="round"/>
+              <circle cx="2" cy="8" r="1.8" fill="#FFD700" />
+              <circle cx="14" cy="2" r="2" fill="#FFFFFF" />
+              <circle cx="26" cy="8" r="1.8" fill="#FFD700" />
+              <line x1="2" y1="21" x2="26" y2="21" stroke="#FFD700" strokeWidth="1.2" />
             </svg>
             <div className="flex items-center gap-2">
-              <div className="h-px w-16 bg-gradient-to-l from-[#D4AF37]/60 to-[#D4AF37]/20" />
-              <div className="w-1 h-1 rotate-45 bg-[#D4AF37]/70" />
-              <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#D4AF37]/60" />
+              <div className="h-px w-16 bg-gradient-to-l from-[#FFD700] to-[#FFD700]/30" />
+              <div className="w-1.5 h-1.5 rotate-45 bg-[#FFD700] shadow-[0_0_6px_#FFD700]" />
+              <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#FFD700]" />
             </div>
           </div>
 
           {/* BADGE */}
           <div className="hero-anim-1 relative mb-8">
-            <div className="hero-badge-ring absolute -inset-[3px] rounded-full" />
-            <div className="relative inline-flex items-center gap-3 px-6 py-2.5 rounded-full border border-[#D4AF37]/45 bg-[#060E22]/70 backdrop-blur-xl">
-              <span className="hero-badge-dot w-2 h-2 rounded-full bg-[#D4AF37] flex-shrink-0" />
-              <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#F5E7A3]">Official Luxury CAD Atelier</span>
-              <span className="w-px h-3 bg-[#D4AF37]/30" />
-              <Gem className="w-3.5 h-3.5 text-[#D4AF37] flex-shrink-0" />
+            <div className="hero-badge-ring absolute -inset-[3px] rounded-full border border-[#FFD700]/60 shadow-[0_0_15px_rgba(255,215,0,0.3)]" />
+            <div className="relative inline-flex items-center gap-3 px-6 py-2.5 rounded-full border border-[#FFD700]/70 bg-[#060E22]/90 backdrop-blur-xl shadow-[0_0_20px_rgba(255,215,0,0.25)]">
+              <span className="hero-badge-dot w-2.5 h-2.5 rounded-full bg-[#FFD700] shadow-[0_0_8px_#FFD700] flex-shrink-0" />
+              <span className="text-[11px] uppercase tracking-[0.3em] font-extrabold text-[#FFE57F] drop-shadow-[0_0_8px_rgba(255,229,127,0.5)]">Official Luxury CAD Atelier</span>
+              <span className="w-px h-3.5 bg-[#FFD700]/50" />
+              <Gem className="w-4 h-4 text-[#FFD700] drop-shadow-[0_0_8px_rgba(255,215,0,0.8)] flex-shrink-0" />
             </div>
           </div>
 
           {/* HEADLINE */}
           <div className="mb-4 overflow-hidden">
             <h1 className="font-serif leading-[1.1] tracking-tight">
-              <span className="hero-line-reveal-1 block whitespace-nowrap text-[2.6rem] sm:text-5xl lg:text-[3.5rem] xl:text-[4rem] text-white font-light">
+              <span className="hero-line-reveal-1 block whitespace-nowrap text-[2.6rem] sm:text-5xl lg:text-[3.5rem] xl:text-[4.2rem] text-white font-normal drop-shadow-[0_2px_14px_rgba(0,0,0,0.9)]">
                 Where{' '}
-                <em className="not-italic font-normal hero-italic-word" style={{ color: '#E8D87A' }}>Imagination</em>
+                <em className="not-italic font-bold hero-italic-word text-[#FFE57F] drop-shadow-[0_0_20px_rgba(255,215,0,0.6)]">Imagination</em>
               </span>
-              <span className="hero-line-reveal-2 block whitespace-nowrap text-[2.6rem] sm:text-5xl lg:text-[3.5rem] xl:text-[4rem] font-bold">
+              <span className="hero-line-reveal-2 block whitespace-nowrap text-[2.6rem] sm:text-5xl lg:text-[3.5rem] xl:text-[4.2rem] font-extrabold">
                 <span className="hero-gold-title">Becomes Jewellery</span>
               </span>
             </h1>
@@ -164,22 +164,22 @@ export const HomePage: React.FC<HomePageProps> = ({
 
           {/* ORNATE DIVIDER */}
           <div className="hero-anim-3 flex items-center gap-2.5 mb-8">
-            <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-[#D4AF37] to-[#D4AF37]/50" />
+            <div className="h-px flex-1 max-w-[80px] bg-gradient-to-r from-[#FFD700] to-[#FFD700]/60" />
             <div className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rotate-45 bg-[#D4AF37]" />
-              <div className="w-1.5 h-1.5 rotate-45 bg-[#F5E7A3]" />
-              <div className="w-1 h-1 rotate-45 bg-[#D4AF37]" />
+              <div className="w-1.5 h-1.5 rotate-45 bg-[#FFD700] shadow-[0_0_6px_#FFD700]" />
+              <div className="w-2 h-2 rotate-45 bg-[#FFFFFF] shadow-[0_0_8px_#FFFFFF]" />
+              <div className="w-1.5 h-1.5 rotate-45 bg-[#FFD700] shadow-[0_0_6px_#FFD700]" />
             </div>
-            <div className="h-px w-32 bg-gradient-to-r from-[#D4AF37]/50 to-transparent" />
+            <div className="h-px w-40 bg-gradient-to-r from-[#FFD700]/60 to-transparent" />
           </div>
 
           {/* SUBHEADLINE */}
-          <p className="hero-anim-4 font-sans text-[15px] sm:text-base text-[#9A9080] font-light leading-[2] max-w-[460px] mb-10">
+          <p className="hero-anim-4 font-sans text-base sm:text-[17px] text-slate-100 font-medium leading-[1.85] max-w-[540px] mb-10 drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
             Premium Rhino{' '}
-            <span className="text-[#E8D87A] font-semibold">.3DM</span> files &amp; watertight{' '}
-            <span className="text-[#7EACFC] font-semibold">STL</span> meshes —
+            <span className="text-[#FFE57F] font-bold drop-shadow-[0_0_10px_rgba(255,215,0,0.5)]">.3DM</span> files &amp; watertight{' '}
+            <span className="text-[#60A5FA] font-bold drop-shadow-[0_0_10px_rgba(96,165,250,0.5)]">STL</span> meshes —
             engineered to{' '}
-            <span className="text-[#FAF8F3] font-semibold">±0.02 mm tolerance</span>{' '}
+            <span className="text-white font-bold underline decoration-[#FFD700] underline-offset-4 decoration-2">±0.02 mm tolerance</span>{' '}
             for the world's finest jewellers.
           </p>
 
@@ -187,42 +187,42 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div className="hero-anim-5 flex flex-wrap gap-4 mb-12">
             <button
               onClick={() => onNavigate('collections')}
-              className="hero-btn-primary group relative overflow-hidden flex items-center gap-3 px-9 py-4 rounded-xl font-bold tracking-[0.15em] uppercase text-[11px] shadow-2xl"
+              className="hero-btn-primary group relative overflow-hidden flex items-center gap-3 px-9 py-4 rounded-xl font-black tracking-[0.15em] uppercase text-xs shadow-2xl"
             >
               <span className="hero-btn-shimmer" />
               <span className="hero-corner-tl" />
               <span className="hero-corner-br" />
-              <Sparkles className="w-4 h-4 text-[#0B1330] relative z-10 flex-shrink-0" />
-              <span className="relative z-10">Explore CAD Files</span>
-              <ArrowRight className="w-4 h-4 text-[#0B1330] relative z-10 flex-shrink-0 group-hover:translate-x-1.5 transition-transform duration-300" />
+              <Sparkles className="w-4 h-4 text-[#050B1E] relative z-10 flex-shrink-0" />
+              <span className="relative z-10 text-[#050B1E]">Explore CAD Files</span>
+              <ArrowRight className="w-4 h-4 text-[#050B1E] relative z-10 flex-shrink-0 group-hover:translate-x-1.5 transition-transform duration-300" />
             </button>
 
             <button
               onClick={() => onNavigate('custom-design')}
-              className="hero-btn-secondary group relative overflow-hidden flex items-center gap-3 px-9 py-4 rounded-xl font-bold tracking-[0.15em] uppercase text-[11px] text-[#FAF8F3]"
+              className="hero-btn-secondary group relative overflow-hidden flex items-center gap-3 px-9 py-4 rounded-xl font-bold tracking-[0.15em] uppercase text-xs text-white"
             >
               <span className="hero-corner-tl hero-corner-tl--gold" />
               <span className="hero-corner-br hero-corner-br--gold" />
-              <Gem className="w-4 h-4 text-[#D4AF37] flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
-              <span>Start Custom Order</span>
-              <ChevronRight className="w-4 h-4 text-[#D4AF37]/60 flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" />
+              <Gem className="w-4 h-4 text-[#FFD700] drop-shadow-[0_0_8px_rgba(255,215,0,0.8)] flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+              <span className="text-white font-bold">Start Custom Order</span>
+              <ChevronRight className="w-4 h-4 text-[#FFD700] flex-shrink-0 group-hover:translate-x-1 transition-transform duration-300" />
             </button>
           </div>
 
           {/* TRUST STRIP */}
-          <div className="hero-anim-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div className="hero-anim-6 flex flex-wrap items-center gap-x-6 gap-y-3">
             {[
-              { icon: <FileCheck2 className="w-3.5 h-3.5 text-[#D4AF37]" />, label: 'Native .3DM' },
-              { icon: <Check className="w-3.5 h-3.5 text-[#5B8DEF]" />, label: 'Watertight STL' },
-              { icon: <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />, label: 'Castable Ready' },
-              { icon: <Award className="w-3.5 h-3.5 text-[#F5E7A3]" />, label: '±0.02 mm' },
+              { icon: <FileCheck2 className="w-4 h-4 text-[#FFD700] drop-shadow-[0_0_6px_rgba(255,215,0,0.8)]" />, label: 'Native .3DM' },
+              { icon: <Check className="w-4 h-4 text-[#60A5FA] drop-shadow-[0_0_6px_rgba(96,165,250,0.8)]" />, label: 'Watertight STL' },
+              { icon: <ShieldCheck className="w-4 h-4 text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.8)]" />, label: 'Castable Ready' },
+              { icon: <Award className="w-4 h-4 text-[#FFE57F] drop-shadow-[0_0_6px_rgba(255,229,127,0.8)]" />, label: '±0.02 mm' },
             ].map(({ icon, label }, i) => (
               <React.Fragment key={label}>
-                <div className="flex items-center gap-1.5 text-[11px] text-[#6A6050] hover:text-[#A09070] transition-colors">
+                <div className="flex items-center gap-2 text-xs sm:text-[13px] text-slate-100 font-semibold tracking-wide drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] hover:text-white transition-colors">
                   {icon}
                   <span>{label}</span>
                 </div>
-                {i < 3 && <div className="w-px h-3 bg-[#D4AF37]/20 hidden sm:block" />}
+                {i < 3 && <div className="w-px h-3.5 bg-[#FFD700]/40 hidden sm:block" />}
               </React.Fragment>
             ))}
           </div>
@@ -865,150 +865,6 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </motion.div>
               </StaggerItem>
             ))}
-          </StaggerGrid>
-        </div>
-      </section>
-
-      {/* SECTION 10: PRICING PREVIEW */}
-      <section className="py-24 bg-[#080E24] border-t border-[#D4AF37]/20 relative">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 space-y-14">
-          <RevealOnScroll className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs uppercase tracking-[0.2em] text-[#D4AF37] font-semibold">
-              Transparent Rates
-            </span>
-            <h2 className="font-serif text-3xl sm:text-5xl text-[#FAF8F3]">
-              Simple, Predictable CAD Pricing
-            </h2>
-            <p className="text-xs text-[#C9C2A6] font-light">
-              Honest investment without hidden model licensing or seat fees.
-            </p>
-          </RevealOnScroll>
-
-          <StaggerGrid className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-            {/* Basic Tier */}
-            <StaggerItem>
-              <motion.div
-                whileHover={{ y: -8 }}
-                className="h-full rounded-2xl bg-[#091029] border border-[#D4AF37]/20 p-8 space-y-6 flex flex-col justify-between shadow-xl"
-              >
-                <div className="space-y-3">
-                  <h3 className="font-serif text-2xl text-[#FAF8F3]">Ready CAD Model</h3>
-                  <p className="text-xs text-[#C9C2A6] font-light">
-                    Instant download from our curated catalogue of classic solitaires, halos, and bands.
-                  </p>
-                  <div className="text-3xl font-serif text-[#F5E7A3] font-bold">
-                    $35 - $55
-                    <span className="text-xs text-[#C9C2A6] font-normal"> / design</span>
-                  </div>
-                  <ul className="space-y-2 text-xs text-[#FAF8F3] pt-2">
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Layered Rhino .3DM file</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Watertight .STL for casting</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Instant download unlock</span>
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => onNavigate('collections')}
-                  className="w-full py-3 rounded-xl border border-[#D4AF37]/30 text-xs text-[#FAF8F3] hover:border-[#D4AF37] uppercase tracking-wider font-semibold transition-colors"
-                >
-                  Browse Catalog
-                </button>
-              </motion.div>
-            </StaggerItem>
-
-            {/* Custom Tier - Most Popular */}
-            <StaggerItem>
-              <motion.div
-                whileHover={{ y: -10, scale: 1.02 }}
-                className="h-full relative rounded-2xl bg-gradient-to-b from-[#0E183D] to-[#0A122E] border-2 border-[#D4AF37] p-8 space-y-6 flex flex-col justify-between shadow-[0_15px_50px_rgba(212,175,55,0.25)]"
-              >
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F5E7A3] text-[#0B1330] text-[10px] font-bold tracking-widest uppercase shadow-md">
-                  Most Popular for Bespoke
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <h3 className="font-serif text-2xl text-[#FAF8F3]">Bespoke Custom CAD</h3>
-                  <p className="text-xs text-[#C9C2A6] font-light">
-                    Custom engineering modeled from your client’s sketch or reference photos.
-                  </p>
-                  <div className="text-3xl font-serif text-[#F5E7A3] font-bold">
-                    $65 - $110
-                    <span className="text-xs text-[#C9C2A6] font-normal"> / piece</span>
-                  </div>
-                  <ul className="space-y-2 text-xs text-[#FAF8F3] pt-2">
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>48-Hour delivery guarantee</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>2 Rounds of revisions included</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>4K Physically based renders</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Full manufacturing casting specs</span>
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => onNavigate('custom-design')}
-                  className="btn-gold-luxury w-full py-3 rounded-xl text-xs font-semibold uppercase tracking-wider"
-                >
-                  Request Custom CAD
-                </button>
-              </motion.div>
-            </StaggerItem>
-
-            {/* High Jewellery Tier */}
-            <StaggerItem>
-              <motion.div
-                whileHover={{ y: -8 }}
-                className="h-full rounded-2xl bg-[#091029] border border-[#D4AF37]/20 p-8 space-y-6 flex flex-col justify-between shadow-xl"
-              >
-                <div className="space-y-3">
-                  <h3 className="font-serif text-2xl text-[#FAF8F3]">Heritage & High Jewellery</h3>
-                  <p className="text-xs text-[#C9C2A6] font-light">
-                    Articulated necklaces, Jadau Kundan Polki sets, and multi-piece bridal suites.
-                  </p>
-                  <div className="text-3xl font-serif text-[#F5E7A3] font-bold">
-                    $140 - $280
-                    <span className="text-xs text-[#C9C2A6] font-normal"> / suite</span>
-                  </div>
-                  <ul className="space-y-2 text-xs text-[#FAF8F3] pt-2">
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Multi-body sub-assemblies</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Hinges, clasps & tongue mechanisms</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#D4AF37]" />
-                      <span>Priority WhatsApp direct access</span>
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => onNavigate('pricing')}
-                  className="w-full py-3 rounded-xl border border-[#D4AF37]/30 text-xs text-[#FAF8F3] hover:border-[#D4AF37] uppercase tracking-wider font-semibold transition-colors"
-                >
-                  View Full Pricing
-                </button>
-              </motion.div>
-            </StaggerItem>
           </StaggerGrid>
         </div>
       </section>

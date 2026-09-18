@@ -6,8 +6,6 @@ export type PageId =
   | 'file-editing'
   | 'ai-jewellery'
   | 'portfolio'
-  | 'cad-service'
-  | 'pricing'
   | 'how-it-works'
   | 'gallery'
   | 'about'
@@ -111,7 +109,6 @@ export interface ContactMessageData {
 export type AdminModuleId =
   | 'overview'
   | 'catalog'
-  | 'services'
   | 'file-edits'
   | 'portfolio'
   | 'approvals'

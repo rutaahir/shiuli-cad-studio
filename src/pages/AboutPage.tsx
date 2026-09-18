@@ -455,10 +455,10 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
           </div>
 
           <button
-            onClick={() => onNavigate('cad-service')}
+            onClick={() => onNavigate('custom-design')}
             className="px-5 py-2.5 bg-slate-900/90 hover:bg-[#D4AF37] text-slate-200 hover:text-slate-950 font-bold rounded-xl text-xs transition-colors border border-slate-800 hover:border-[#D4AF37] flex items-center gap-2 shrink-0 shadow-lg"
           >
-            <span>View All 10 CAD Services Mega-Catalog</span>
+            <span>Request Custom CAD Design</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -501,10 +501,10 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
               </div>
 
               <button
-                onClick={() => onNavigate('cad-service', service.slug)}
+                onClick={() => onNavigate('custom-design')}
                 className="pt-2 text-xs font-bold text-[#D4AF37] hover:text-[#F5E7A3] flex items-center gap-1.5 transition-colors group/link text-left"
               >
-                <span>Learn More</span>
+                <span>Request Design</span>
                 <ChevronRight className="w-4 h-4 transform group-hover/link:translate-x-1 transition-transform" />
               </button>
             </motion.div>

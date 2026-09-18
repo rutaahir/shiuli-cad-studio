@@ -68,7 +68,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const navItems: { id: AdminModuleId; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'overview', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'catalog', label: 'Categories & Products', icon: <FolderKanban className="w-4 h-4" /> },
-    { id: 'services', label: 'CAD Services CMS', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'file-edits', label: 'File Modifications', icon: <Sliders className="w-4 h-4" /> },
     { id: 'portfolio', label: 'Portfolio Showcase', icon: <FolderKanban className="w-4 h-4" /> },
     { id: 'approvals', label: 'Design Approvals', icon: <CheckCircle2 className="w-4 h-4" />, badge: 3 },

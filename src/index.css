@@ -299,15 +299,15 @@ select::-moz-selection,
 /* ── Gold royal title ── */
 .hero-gold-title {
   background: linear-gradient(90deg,
-    #8B6914 0%, #C29618 15%, #D4AF37 30%,
-    #F5E7A3 45%, #FFFDE7 50%, #F5E7A3 55%,
-    #D4AF37 70%, #C29618 85%, #8B6914 100%
+    #FFD700 0%, #FFF176 25%, #FFFFFF 50%,
+    #FFF176 75%, #FFD700 100%
   );
-  background-size: 300% auto;
+  background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: goldShimmer 5s linear 1.5s infinite;
+  filter: drop-shadow(0 2px 18px rgba(255, 215, 0, 0.5));
+  animation: goldShimmer 4s linear 1s infinite;
 }
 
 /* ── Badge glow ring ── */
@@ -321,34 +321,37 @@ select::-moz-selection,
 
 /* ── Primary CTA ── */
 .hero-btn-primary {
-  background: linear-gradient(135deg, #F5E7A3 0%, #D4AF37 50%, #B8901A 100%);
-  color: #0B1330;
+  background: linear-gradient(135deg, #FFF59D 0%, #FFD700 45%, #FFA000 100%);
+  color: #050B1E;
+  font-weight: 800;
   transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
-  border: 1px solid rgba(245,231,163,0.4);
+  border: 1px solid rgba(255,245,157,0.8);
+  box-shadow: 0 4px 20px rgba(255,215,0,0.35);
 }
 .hero-btn-primary:hover {
   transform: translateY(-3px) scale(1.03);
-  box-shadow: 0 8px 32px rgba(212,175,55,0.55), 0 0 0 1px rgba(245,231,163,0.5);
-  filter: brightness(1.08);
+  box-shadow: 0 10px 35px rgba(255,215,0,0.65), 0 0 0 1px rgba(255,255,255,0.8);
+  filter: brightness(1.1);
 }
 .hero-btn-shimmer {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
   animation: btnShimmer 3.5s ease-in-out 2s infinite;
 }
 
 /* ── Secondary CTA ── */
 .hero-btn-secondary {
-  border: 1px solid rgba(212,175,55,0.4);
+  border: 1.5px solid rgba(255,215,0,0.7);
   backdrop-filter: blur(12px);
-  background: rgba(9,17,43,0.4);
+  background: rgba(9,17,43,0.7);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.4), inset 0 0 12px rgba(255,215,0,0.1);
   transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
 }
 .hero-btn-secondary:hover {
-  border-color: rgba(212,175,55,0.9);
-  background: rgba(18,31,77,0.6);
-  box-shadow: 0 0 24px rgba(212,175,55,0.25), inset 0 0 16px rgba(212,175,55,0.05);
+  border-color: rgba(255,215,0,1);
+  background: rgba(18,31,77,0.8);
+  box-shadow: 0 0 28px rgba(255,215,0,0.4), inset 0 0 20px rgba(255,215,0,0.15);
   transform: translateY(-3px);
 }
 

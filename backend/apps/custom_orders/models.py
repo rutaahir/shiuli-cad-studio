@@ -217,6 +217,9 @@ class Order(models.Model):
         AWAITING_PAYMENT = "awaiting_payment", "Awaiting Booking Payment"
         IN_DESIGN = "in_design", "In Pool (Awaiting Designer)"
         WITH_DESIGNER = "with_designer", "With CAD Designer"
+        PREVIEW_PENDING_APPROVAL = "preview_pending_approval", "Preview Sent to Client"
+        PREVIEW_APPROVED = "preview_approved", "Preview Approved by Client"
+        REVISION_REQUESTED = "revision_requested", "Preview Revision Requested"
         PENDING_REVIEW = "pending_review", "Pending Admin Quality Review"
         PREVIEW_READY = "preview_ready", "Design Preview Ready for Client"
         PENDING_FINAL_PAYMENT = "pending_final_payment", "Pending Final Payment"
@@ -247,7 +250,7 @@ class Order(models.Model):
     advance_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     advance_paid = models.BooleanField(default=False)
     balance_paid = models.BooleanField(default=False)
-    status = models.CharField(max_length=30, choices=Status.choices, default=Status.AWAITING_PAYMENT)
+    status = models.CharField(max_length=35, choices=Status.choices, default=Status.AWAITING_PAYMENT)
     
     # Deadline Configuration & Tracking (Stage 4B & 7 & 8)
     deadline_hours = models.PositiveIntegerField(default=72)
@@ -258,9 +261,16 @@ class Order(models.Model):
 
     # Quality Review & Previews (Stage 9 & 10)
     preview_image = models.ImageField(upload_to="custom_orders/previews/", null=True, blank=True)
+    preview_file = models.FileField(upload_to="custom_orders/previews/", null=True, blank=True)
+    preview_notes = models.TextField(blank=True)
+    preview_sent_at = models.DateTimeField(null=True, blank=True)
+    preview_status = models.CharField(max_length=30, default="none")  # none, pending_approval, approved, revision_requested
+    preview_feedback = models.TextField(blank=True)
     admin_review_notes = models.TextField(blank=True)
     quality_approved = models.BooleanField(default=False)
     download_unlocked = models.BooleanField(default=False)
+    client_consent_to_feature = models.BooleanField(default=False)
+    quality_approved = models.BooleanField(default=False)
     client_consent_to_feature = models.BooleanField(default=False)
 
     # Settlement Tracking (Stage 13)

@@ -16,7 +16,6 @@ import { AdminAnalyticsModule } from '../components/admin/AdminAnalyticsModule';
 import { AdminNotificationsModule } from '../components/admin/AdminNotificationsModule';
 import { AdminSettingsModule } from '../components/admin/AdminSettingsModule';
 
-import { AdminServicesModule } from '../components/admin/AdminServicesModule';
 import { AdminFileEditsModule } from '../components/admin/AdminFileEditsModule';
 import { AdminPortfolioModule } from '../components/admin/AdminPortfolioModule';
 import { AdminContactModule } from '../components/admin/AdminContactModule';
@@ -126,8 +125,6 @@ export const SuperAdminPage: React.FC<SuperAdminPageProps> = ({ onNavigate, init
       )}
 
       {activeModule === 'catalog' && <AdminCatalogModule />}
-
-      {activeModule === 'services' && <AdminServicesModule />}
 
       {activeModule === 'file-edits' && <AdminFileEditsModule />}
 

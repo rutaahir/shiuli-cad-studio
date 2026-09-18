@@ -33,11 +33,9 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { SecureDownloadPage } from './pages/SecureDownloadPage';
 
 // Restructure New Pages
-import { ServiceLandingPage } from './pages/ServiceLandingPage';
 import { FileEditingPage } from './pages/FileEditingPage';
 import { AIJewelleryPage } from './pages/AIJewelleryPage';
 import { PortfolioPage } from './pages/PortfolioPage';
-import { PricingPage } from './pages/PricingPage';
 
 import { MessageSquare, Phone, CheckCircle2, X } from 'lucide-react';
 
@@ -116,26 +114,6 @@ function getInitialRouteState() {
     return { page: 'portfolio' as PageId, tab: undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
   }
 
-  if (path === '/pricing') {
-    return { page: 'pricing' as PageId, tab: undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
-  }
-
-  if (path === '/cad-services' || path === '/cad-service' || path.startsWith('/cad-services/') || path.startsWith('/service/')) {
-    let slug: string | undefined = undefined;
-    if (path.startsWith('/cad-services/')) {
-      slug = path.replace('/cad-services/', '');
-    } else if (path.startsWith('/service/')) {
-      slug = path.replace('/service/', '');
-    }
-    return {
-      page: 'cad-service' as PageId,
-      tab: undefined,
-      category: 'all',
-      productId: PRODUCTS[0]?.id || 'ring-01',
-      customProductId: undefined,
-      serviceSlug: slug,
-    };
-  }
 
   if (path === '/login') return { page: 'login' as PageId, tab: undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
   if (path === '/register') return { page: 'register' as PageId, tab: undefined, category: 'all', productId: PRODUCTS[0]?.id || 'ring-01', customProductId: undefined, serviceSlug: undefined };
@@ -265,12 +243,7 @@ function MainApp() {
       url = '/ai-jewellery';
     } else if (page === 'portfolio') {
       url = '/portfolio';
-    } else if (page === 'pricing') {
-      url = '/pricing';
-    } else if (page === 'cad-service') {
-      const slug = extraId || selectedServiceSlug;
-      url = slug ? `/cad-services/${slug}` : '/cad-services';
-      setSelectedServiceSlug(slug);
+
     } else if (page === 'login') {
       url = '/login';
     } else if (page === 'register') {
@@ -515,16 +488,6 @@ function MainApp() {
             <PortfolioPage onNavigate={handleNavigate} />
           )}
 
-          {currentPage === 'pricing' && (
-            <PricingPage onNavigate={handleNavigate} />
-          )}
-
-          {currentPage === 'cad-service' && (
-            <ServiceLandingPage
-              slug={selectedServiceSlug || 'master-jewellery-cad'}
-              onNavigate={handleNavigate}
-            />
-          )}
 
           {currentPage === 'forgot-password' && (
             <ForgotPasswordPage onNavigate={handleNavigate} />

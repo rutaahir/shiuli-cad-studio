@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PageId } from '../types';
 import {
   api,
   OptionGroupData,
-  OptionValueData,
   CustomRequestStonePayload
 } from '../services/api';
-import { useCatalog, BackendProduct } from '../hooks/useCatalog';
-import { PRODUCTS } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import { appStore } from '../services/store';
 import {
@@ -28,30 +25,24 @@ import {
   Ruler,
   ShieldCheck,
   Clock,
-  Calendar,
   Layers,
   Feather,
   Box,
   Sliders,
   CheckCircle,
-  Award,
-  Search,
-  Grid,
-  CheckSquare,
-  Image as ImageIcon
+  Mic,
+  MicOff,
+  Volume2,
+  Play,
+  Pause,
+  Radio,
+  FileAudio
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface CustomDesignPageProps {
   initialProductId?: string;
   onNavigate: (page: PageId, extraId?: string) => void;
-}
-
-interface SelectedCatalogRef {
-  id: string | number;
-  title: string;
-  category: string;
-  image: string;
 }
 
 // Ring Size Conversion Matrix
@@ -74,6 +65,7 @@ const RING_SIZE_CONVERSION_TABLE = [
   { us: '12', uk: 'Y', in_hk: '25', eu: '67.5', inside_mm: '21.4 mm' },
 ];
 
+<<<<<<< HEAD
 const DEFAULT_OPTION_GROUPS: any[] = [
   {
     id: 1,
@@ -327,6 +319,8 @@ export const CustomDesignPage: React.FC<CustomDesignPageProps> = ({
     }
   }, [initialProductId, availableCatalogProducts, categories]);
 
+=======
+>>>>>>> d78b1bc (Update Shiuli CAD Studio DONE)
 const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
   {
     id: 1,
@@ -387,7 +381,362 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
   }
 ];
 
+<<<<<<< HEAD
   // Load Option Groups & Categories from Backend with Fallbacks
+=======
+// Voice Instructions Control Component with Live Speech-to-Text & Audio Recording
+const VoiceInstructionsControl: React.FC<{
+  value: string;
+  onChange: (text: string) => void;
+  onAudioFileAttached: (file: File) => void;
+  onAudioFileRemoved: (file: File) => void;
+}> = ({ value, onChange, onAudioFileAttached, onAudioFileRemoved }) => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [speechRecognition, setSpeechRecognition] = useState<any>(null);
+  const [voiceStatus, setVoiceStatus] = useState<string>('');
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [attachedAudioFile, setAttachedAudioFile] = useState<File | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const timerRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const startRecording = async () => {
+    setVoiceStatus('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(chunks, { type: mime });
+        const url = URL.createObjectURL(audioBlob);
+        const fileName = `Voice_Note_${new Date().toISOString().slice(0,10)}_${Date.now()}.webm`;
+        const file = new File([audioBlob], fileName, { type: audioBlob.type });
+
+        setRecordedAudioUrl(url);
+        setAttachedAudioFile(file);
+        onAudioFileAttached(file);
+        setVoiceStatus('Voice note recorded & attached successfully!');
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+
+      // Speech Recognition API (Live Speech to Text)
+      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRec) {
+        const recognition = new SpeechRec();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event: any) => {
+          let currentTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
+          }
+          if (currentTranscript.trim()) {
+            onChange(value ? `${value.trim()} ${currentTranscript.trim()}` : currentTranscript.trim());
+          }
+        };
+
+        recognition.onerror = (e: any) => {
+          console.warn('Speech recognition notice:', e.error);
+        };
+
+        recognition.start();
+        setSpeechRecognition(recognition);
+      }
+
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds(prev => prev + 1);
+      }, 1000);
+
+    } catch (err: any) {
+      console.error('Mic access error:', err);
+      setVoiceStatus('Microphone permission required. Please allow mic access in browser.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    if (speechRecognition) {
+      try {
+        speechRecognition.stop();
+      } catch (e) {}
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    setIsRecording(false);
+  };
+
+  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const url = URL.createObjectURL(file);
+      setRecordedAudioUrl(url);
+      setAttachedAudioFile(file);
+      onAudioFileAttached(file);
+      setVoiceStatus(`Uploaded voice note: ${file.name}`);
+    }
+  };
+
+  const removeAudioNote = () => {
+    if (attachedAudioFile) {
+      onAudioFileRemoved(attachedAudioFile);
+    }
+    if (recordedAudioUrl) {
+      URL.revokeObjectURL(recordedAudioUrl);
+    }
+    setRecordedAudioUrl(null);
+    setAttachedAudioFile(null);
+    setIsPlaying(false);
+    setAudioProgress(0);
+    setVoiceStatus('');
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+  };
+
+  const togglePlayAudio = () => {
+    if (!audioRef.current && recordedAudioUrl) {
+      const audio = new Audio(recordedAudioUrl);
+      audio.ontimeupdate = () => {
+        if (audio.duration) {
+          setAudioProgress((audio.currentTime / audio.duration) * 100);
+        }
+      };
+      audio.onended = () => {
+        setIsPlaying(false);
+        setAudioProgress(0);
+      };
+      audioRef.current = audio;
+    }
+
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider block">
+          Special CAD Instructions &amp; Customization Notes
+        </label>
+
+        {/* Voice Action Buttons */}
+        <div className="flex items-center gap-2">
+          {!isRecording ? (
+            <button
+              type="button"
+              onClick={startRecording}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#F5E7A3] via-[#D4AF37] to-[#B8860B] text-[#0B1330] font-extrabold text-xs shadow-md hover:scale-105 transition-all flex items-center gap-1.5"
+            >
+              <Mic className="w-4 h-4 text-[#0B1330]" /> Record Voice Note
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={stopRecording}
+              className="px-3.5 py-1.5 rounded-xl bg-red-600 text-white font-extrabold text-xs shadow-lg animate-pulse flex items-center gap-1.5"
+            >
+              <Radio className="w-4 h-4 text-white animate-spin" /> Stop ({formatTime(recordingSeconds)})
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3.5 py-1.5 rounded-xl bg-[#121F4D]/80 border border-[#D4AF37]/40 text-[#F5E7A3] hover:bg-[#D4AF37]/20 font-bold text-xs transition-all flex items-center gap-1.5"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#D4AF37]" /> Upload Voice Note
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg,.aac"
+            onChange={handleAudioUpload}
+            className="hidden"
+          />
+        </div>
+      </div>
+
+      {/* Recording status indicator */}
+      {isRecording && (
+        <div className="p-3 rounded-xl bg-[#1E4FA3]/30 border border-[#5B8DEF]/40 flex items-center gap-3 animate-pulse text-xs text-[#F5E7A3]">
+          <span className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
+          <span className="font-semibold">Recording Voice Note &amp; Auto-Transcribing Speech... Speak into your microphone.</span>
+        </div>
+      )}
+
+      {/* Textarea */}
+      <textarea
+        rows={4}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Describe stone layout modifications, prong counts, shank width requirements, or click 'Record Voice Note' to speak..."
+        className="w-full bg-[#09112B] border border-white/10 rounded-2xl p-4 text-xs text-white placeholder-slate-500 focus:border-[#D4AF37] outline-none leading-relaxed transition-all"
+      />
+
+      {/* Audio Player Card (If Voice Note Recorded or Uploaded) */}
+      {recordedAudioUrl && attachedAudioFile && (
+        <div className="p-3.5 rounded-2xl bg-[#121F4D]/90 border border-[#D4AF37]/40 flex items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={togglePlayAudio}
+              className="w-9 h-9 rounded-full bg-[#D4AF37] text-[#0B1330] flex items-center justify-center font-bold shadow-md hover:scale-110 transition-transform"
+            >
+              {isPlaying ? <Pause className="w-4 h-4 text-[#0B1330]" /> : <Play className="w-4 h-4 ml-0.5 text-[#0B1330]" />}
+            </button>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <FileAudio className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span className="text-xs font-bold text-[#F5E7A3] max-w-[200px] truncate">
+                  {attachedAudioFile.name}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#F5E7A3] font-mono">
+                  {(attachedAudioFile.size / 1024).toFixed(0)} KB
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-36 sm:w-56 h-1.5 bg-black/40 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#F5E7A3] to-[#D4AF37] transition-all duration-200"
+                  style={{ width: `${audioProgress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={removeAudioNote}
+            className="p-2 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+            title="Remove Voice Note"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {voiceStatus && !isRecording && (
+        <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+          <CheckCircle className="w-3.5 h-3.5" /> {voiceStatus}
+        </p>
+      )}
+    </div>
+  );
+};
+
+export const CustomDesignPage: React.FC<CustomDesignPageProps> = ({
+  initialProductId,
+  onNavigate,
+}) => {
+  const { user } = useAuth();
+
+  // Navigation & Step Control
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedTicket, setSubmittedTicket] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState('');
+  const [showRingSizeModal, setShowRingSizeModal] = useState(false);
+
+  // Dynamic Option Groups from Backend API
+  const [optionGroups, setOptionGroups] = useState<OptionGroupData[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+
+  // Category Selection
+  const [selectedCategory, setSelectedCategory] = useState<string>('rings');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+
+  // Category-Specific Specs
+  const [ringSizeStandard, setRingSizeStandard] = useState('US');
+  const [ringSize, setRingSize] = useState('6.5');
+  const [targetWeightGrams, setTargetWeightGrams] = useState('4.5');
+  const [heightMm, setHeightMm] = useState('');
+  const [widthMm, setWidthMm] = useState('');
+  const [chainLength, setChainLength] = useState('18 inches (Standard)');
+  const [earringBacking, setEarringBacking] = useState('Push Back');
+  const [wristCircumference, setWristCircumference] = useState('');
+  const [braceletStyle, setBraceletStyle] = useState('Kada');
+  const [customSpecsText, setCustomSpecsText] = useState('');
+
+  // Selections Map for Dynamic Option Groups (group.key -> option_value.id)
+  const [selections, setSelections] = useState<Record<string, number>>({});
+
+  // Stones Specification
+  const [isMetalOnly, setIsMetalOnly] = useState(false);
+  const [stonesList, setStonesList] = useState<CustomRequestStonePayload[]>([
+    {
+      stone_type: 'Natural Diamond',
+      shape: 'Round Brilliant',
+      setting_style: 'Prong',
+      size_value: '1.0',
+      size_unit: 'carat',
+      clarity: 'VS1',
+      quantity: 1,
+      is_center_stone: true
+    }
+  ]);
+
+  // Files & Attachments
+  const [sketchFiles, setSketchFiles] = useState<File[]>([]);
+  const [sketchPreviews, setSketchPreviews] = useState<string[]>([]);
+  const [specialInstructions, setSpecialInstructions] = useState(
+    initialProductId ? `Referencing SKU #${initialProductId} modifications.` : ''
+  );
+
+  // Contact Info & Portfolio Consent
+  const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientConsent, setClientConsent] = useState(false);
+
+  // Prefill Auth User Info
+  useEffect(() => {
+    if (user) {
+      if (user.first_name) setClientName(`${user.first_name} ${user.last_name || ''}`.trim());
+      if (user.email) setClientEmail(user.email);
+      if (user.phone_number) setClientPhone(user.phone_number);
+    }
+  }, [user]);
+
+  // Load Option Groups & Categories from Backend
+>>>>>>> d78b1bc (Update Shiuli CAD Studio DONE)
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
@@ -421,13 +770,6 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
           }
         });
         setSelections(defaults);
-
-        // Find default delivery speed id
-        const deliveryGroup = effectiveGroups.find(g => g.key === 'delivery_speed');
-        if (deliveryGroup && deliveryGroup.options && deliveryGroup.options.length > 0) {
-          const std = deliveryGroup.options.find(o => o.key === 'standard' || o.label.toLowerCase().includes('standard')) || deliveryGroup.options[0];
-          setSelectedDeliverySpeedId(std.id);
-        }
       } catch (err) {
         console.error('Failed to load custom design option groups:', err);
         if (isMounted) {
@@ -449,14 +791,46 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
     return () => { isMounted = false; };
   }, []);
 
+  // Dynamic Category Selector Config from API (filtered to exclude test items)
+  const [apiCategories, setApiCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.getCategories(true).then((cats) => {
+      if (cats && Array.isArray(cats) && cats.length > 0) {
+        setApiCategories(cats);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const categoryGroups = useMemo(() => {
+    if (apiCategories.length > 0) {
+      const filtered = apiCategories.filter(
+        (c) => !c.name.toLowerCase().includes('test') && c.slug !== 'xyz'
+      );
+      if (filtered.length > 0) {
+        return filtered.map((c) => ({
+          id: c.slug,
+          name: c.name,
+          icon: c.slug.includes('ring') ? Sparkles : c.slug.includes('ear') ? Gem : c.slug.includes('pendant') ? Layers : Ruler,
+          desc: `Bespoke ${c.name} 3D CAD modeling & precision engineering.`
+        }));
+      }
+    }
+    return [
+      { id: 'rings', name: 'Rings', icon: Sparkles, desc: 'Engagement, Solitaire, Eternity, Wedding & Fashion Rings' },
+      { id: 'pendants', name: 'Pendants & Necklaces', icon: Layers, desc: 'Pendants, Solitaire Drops, Statement Chokers & Chains' },
+      { id: 'earrings', name: 'Earrings', icon: Gem, desc: 'Studs, Drop Earrings, Dangles, Hoops & Huggies' },
+      { id: 'bracelets', name: 'Bracelets & Bangles', icon: Ruler, desc: 'Kadas, Tennis Bracelets, Stackable Bangles & Cuffs' },
+      { id: 'other', name: 'Custom / Other', icon: Feather, desc: 'Brooches, Cufflinks, Sculptures & Specialty Concepts' },
+    ];
+  }, [apiCategories]);
+
   // Helper maps for option groups with fallbacks
   const groupMap = useMemo(() => {
     const map: Record<string, OptionGroupData> = {};
-    // Seed default option groups first so no group is ever missing
     DEFAULT_OPTION_GROUPS.forEach(g => {
       map[g.key] = g;
     });
-    // Merge actual loaded option groups over defaults
     optionGroups.forEach(g => {
       if (g && g.key && (g.options || []).length > 0) {
         map[g.key] = g;
@@ -465,7 +839,6 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
     return map;
   }, [optionGroups]);
 
-  // Selected Metal object to check if Gold Purity should be shown
   const selectedMetalObj = useMemo(() => {
     const metalGroupId = selections['metal'];
     if (!metalGroupId || !groupMap['metal']) return null;
@@ -478,50 +851,6 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
     const key = selectedMetalObj.key.toLowerCase();
     return label.includes('gold') || key.includes('gold');
   }, [selectedMetalObj]);
-
-  // Selected Option Values summary helper
-  const selectedValuesSummary = useMemo(() => {
-    const summary: { group: string; value: string; color?: string }[] = [];
-    Object.entries(selections).forEach(([groupKey, valueId]) => {
-      const g = groupMap[groupKey];
-      if (g) {
-        const val = (g.options || []).find(o => o.id === valueId);
-        if (val) {
-          summary.push({ group: g.label, value: val.label, color: val.swatch_color });
-        }
-      }
-    });
-    return summary;
-  }, [selections, groupMap]);
-
-  // Toggle Selection of a Catalog Product
-  const toggleCatalogProductRef = (item: SelectedCatalogRef) => {
-    setSelectedCatalogProducts(prev => {
-      const exists = prev.some(p => String(p.id) === String(item.id));
-      if (exists) {
-        return prev.filter(p => String(p.id) !== String(item.id));
-      } else {
-        return [...prev, item];
-      }
-    });
-  };
-
-  // Handle Logo Upload with Format Validation
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLogoError('');
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const validExtensions = ['.svg', '.ai', '.eps', '.pdf', '.png', '.jpg', '.jpeg'];
-      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-      if (!validExtensions.includes(ext)) {
-        setLogoError(`Invalid logo format (${ext}). Allowed formats: SVG, AI, EPS, PDF, PNG, JPG`);
-        return;
-      }
-      setLogoFile(file);
-      setLogoPreviewUrl(URL.createObjectURL(file as Blob));
-      setHasLogo(true);
-    }
-  };
 
   // Handle Sketches Upload
   const handleSketchUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -536,6 +865,15 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
   const removeSketch = (index: number) => {
     setSketchFiles(prev => prev.filter((_, i) => i !== index));
     setSketchPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Audio file callbacks for Voice Note
+  const handleAudioFileAttached = (file: File) => {
+    setSketchFiles(prev => [...prev, file]);
+  };
+
+  const handleAudioFileRemoved = (file: File) => {
+    setSketchFiles(prev => prev.filter(f => f !== file));
   };
 
   // Stone Add/Remove
@@ -567,7 +905,7 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
     });
   };
 
-  // Handle Form Submission (Quote Only vs Place Order)
+  // Handle Form Submission
   const handleSubmit = async (submissionIntent: 'quote_only' | 'place_order') => {
     setSubmissionError('');
     setIsSubmitting(true);
@@ -582,6 +920,7 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
         };
       });
 
+<<<<<<< HEAD
       // Find selected metal, purity & style labels
       const metalGroup = optionGroups.find(g => g.key === 'metal');
       const purityGroup = optionGroups.find(g => g.key === 'gold_purity');
@@ -669,6 +1008,8 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
         ? selectedCatalogProducts.map(p => `[#${p.id}] ${p.title} (${p.category || ''})`).join(', ')
         : '';
 
+=======
+>>>>>>> d78b1bc (Update Shiuli CAD Studio DONE)
       const bodyData = {
         category: resolvedCategory,
         description: fullNotes,
@@ -689,6 +1030,7 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
         custom_specs_text: customSpecsText || '',
         catalog_references_text: catalogRefsString,
         is_metal_only: isMetalOnly,
+<<<<<<< HEAD
         engraving_text: engravingText || '',
         engraving_font: engravingFont || '',
         engraving_placement: engravingPlacement || '',
@@ -787,6 +1129,9 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
         budget_range: projectTier,
         needed_by_date: neededByDate || null,
         special_instructions: fullNotes,
+=======
+        special_instructions: specialInstructions,
+>>>>>>> d78b1bc (Update Shiuli CAD Studio DONE)
         client_consent_to_feature: clientConsent,
         submission_intent: submissionIntent,
         client_phone: finalContactPhone,
@@ -846,35 +1191,6 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
     }
   };
 
-  const [apiCategories, setApiCategories] = useState<any[]>([]);
-
-  useEffect(() => {
-    api.getCategories(true).then((cats) => {
-      if (cats && Array.isArray(cats) && cats.length > 0) {
-        setApiCategories(cats);
-      }
-    }).catch(() => {});
-  }, []);
-
-  // Dynamic Category Selector Config from API
-  const categoryGroups = useMemo(() => {
-    if (apiCategories.length > 0) {
-      return apiCategories.map((c) => ({
-        id: c.slug,
-        name: c.name,
-        icon: c.slug.includes('ring') ? Sparkles : c.slug.includes('ear') ? Gem : c.slug.includes('pendant') ? Layers : Ruler,
-        desc: `Bespoke ${c.name} 3D CAD modeling & precision engineering.`
-      }));
-    }
-    return [
-      { id: 'rings', name: 'Rings', icon: Sparkles, desc: 'Engagement, Solitaire, Eternity, Wedding & Fashion Rings' },
-      { id: 'pendants', name: 'Pendants & Necklaces', icon: Layers, desc: 'Pendants, Solitaire Drops, Statement Chokers & Chains' },
-      { id: 'earrings', name: 'Earrings', icon: Gem, desc: 'Studs, Drop Earrings, Dangles, Hoops & Huggies' },
-      { id: 'bracelets', name: 'Bracelets & Bangles', icon: Ruler, desc: 'Kadas, Tennis Bracelets, Stackable Bangles & Cuffs' },
-      { id: 'other', name: 'Custom / Other', icon: Feather, desc: 'Brooches, Cufflinks, Sculptures & Specialty Concepts' },
-    ];
-  }, [apiCategories]);
-
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-[#060B1E] text-[#F5F1E8] pt-24 pb-24 px-4 sm:px-8 lg:px-12 relative overflow-hidden">
@@ -891,7 +1207,6 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
             Your custom specification ticket <span className="font-mono font-bold text-[#F5E7A3] bg-[#D4AF37]/20 px-3 py-1 rounded-full border border-[#D4AF37]/30">#{submittedTicket?.ticket_id || 'CR-SUCCESS'}</span> has been assigned to our master CAD engineering team.
           </p>
 
-          {/* Specification Summary Card */}
           <div className="bg-[#121F4D]/80 border border-[#D4AF37]/30 rounded-2xl p-6 text-left mb-8 max-w-md mx-auto space-y-3">
             <h3 className="font-serif gold-gradient-text text-sm font-bold uppercase tracking-widest pb-2 border-b border-[#D4AF37]/20">
               Specification Details
@@ -905,12 +1220,6 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
                 <span className="text-[#FAF8F3]/60">Client Contact:</span>
                 <span className="font-bold text-[#F5E7A3]">{clientName || user?.first_name || 'Valued Client'}</span>
               </div>
-              {selectedCatalogProducts.length > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-[#FAF8F3]/60">Catalog Reference:</span>
-                  <span className="font-bold text-[#D4AF37]">{selectedCatalogProducts.length} Product(s) Selected</span>
-                </div>
-              )}
               <div className="flex justify-between">
                 <span className="text-[#FAF8F3]/60">Included Assets:</span>
                 <span className="font-bold text-[#D4AF37]">3DM + Printable STL + 4K Renders</span>
@@ -942,1006 +1251,433 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
 
   return (
     <div className="min-h-screen bg-[#060B1E] text-[#F5F1E8] pt-24 sm:pt-28 pb-24 px-4 sm:px-6 lg:px-8 xl:px-12 relative overflow-hidden">
-      {/* Container aligned with site width */}
-      <div className="max-w-[1600px] mx-auto space-y-6 relative z-10">
+      <div className="max-w-[1400px] mx-auto space-y-6 relative z-10">
 
-        {/* STREAMLINED COMPACT HEADER */}
+        {/* HEADER */}
         <div className="text-center max-w-3xl mx-auto space-y-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#F5E7A3]">
+            <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" /> 3D CAD Studio &amp; Bespoke Custom Orders
+          </span>
           <h1 className="text-3xl sm:text-4xl font-serif gold-gradient-text font-bold tracking-tight">
-            Custom Design & 3D CAD Studio
+            Custom Jewelry 3D CAD Studio
           </h1>
           <p className="text-[#FAF8F3]/70 text-xs sm:text-sm">
-            Configure your exact jewelry specifications for 100% 3D printability and precision casting.
+            Create your custom jewelry design in 3 easy steps. Get 100% castable, print-ready 3D CAD files.
           </p>
         </div>
 
-        {/* Stepper Header (Compact Bar) */}
-        <div className="w-full bg-[#09112B]/80 backdrop-blur-md p-3.5 rounded-2xl border border-[#D4AF37]/30 shadow-xl">
-          <div className="flex justify-between items-center relative">
+        {/* SIMPLIFIED 3-STEPPER HEADER */}
+        <div className="w-full bg-[#09112B]/80 backdrop-blur-md p-4 rounded-2xl border border-[#D4AF37]/30 shadow-xl max-w-3xl mx-auto">
+          <div className="grid grid-cols-3 gap-2 text-center">
             {[
-              { step: 1, title: 'Category & Specs' },
-              { step: 2, title: 'Metal & Style' },
-              { step: 3, title: 'Stones & Gemstones' },
-              { step: 4, title: 'Branding & References' },
-              { step: 5, title: 'Review & Dispatch' },
+              { step: 1, title: '1. Category & Metal' },
+              { step: 2, title: '2. Photos & Notes' },
+              { step: 3, title: '3. Contact & Submit' },
             ].map((s) => (
-              <div key={s.step} className="flex-1 flex flex-col items-center relative z-10">
-                <button
-                  onClick={() => currentStep > s.step && setCurrentStep(s.step)}
-                  disabled={currentStep < s.step}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
-                    currentStep === s.step
-                      ? 'bg-gradient-to-r from-[#F5E7A3] via-[#D4AF37] to-[#B8860B] text-[#0B1330] shadow-[0_0_15px_rgba(212,175,55,0.5)] scale-110 font-extrabold'
-                      : currentStep > s.step
-                      ? 'bg-[#1E4FA3] text-white border border-[#5B8DEF]/40 cursor-pointer'
-                      : 'bg-[#121F4D]/60 text-[#FAF8F3]/40 border border-white/10 cursor-not-allowed'
-                  }`}
-                >
-                  {currentStep > s.step ? <Check className="w-4 h-4" /> : s.step}
-                </button>
-                <span className={`text-[11px] font-semibold mt-1.5 hidden sm:block ${currentStep === s.step ? 'text-[#F5E7A3]' : 'text-[#FAF8F3]/50'}`}>
-                  {s.title}
-                </span>
-              </div>
+              <button
+                key={s.step}
+                onClick={() => currentStep > s.step && setCurrentStep(s.step)}
+                disabled={currentStep < s.step}
+                className={`py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                  currentStep === s.step
+                    ? 'bg-gradient-to-r from-[#F5E7A3] via-[#D4AF37] to-[#B8860B] text-[#0B1330] shadow-[0_0_15px_rgba(212,175,55,0.4)] font-extrabold scale-[1.02]'
+                    : currentStep > s.step
+                    ? 'bg-[#1E4FA3]/40 text-[#F5E7A3] border border-[#5B8DEF]/40 cursor-pointer hover:bg-[#1E4FA3]/60'
+                    : 'bg-[#121F4D]/40 text-[#FAF8F3]/40 border border-white/5 cursor-not-allowed'
+                }`}
+              >
+                {currentStep > s.step ? <Check className="w-4 h-4 text-[#F5E7A3]" /> : null}
+                <span>{s.title}</span>
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Main Form Grid & Specification Summary Sidebar */}
+        {/* MAIN LAYOUT: FORM + SUMMARY SIDEBAR */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Main Content Area */}
-          <div className="lg:col-span-8 bg-[#09112B]/85 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-[#D4AF37]/30 shadow-2xl">
+          {/* Main Form Area */}
+          <div className="lg:col-span-8 bg-[#09112B]/85 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-[#D4AF37]/30 shadow-2xl space-y-6">
             {optionsLoading ? (
               <div className="py-20 text-center">
                 <Loader2 className="w-10 h-10 text-[#D4AF37] animate-spin mx-auto mb-4" />
-                <p className="text-[#FAF8F3]/60 font-medium text-sm">Loading studio design parameters from database...</p>
+                <p className="text-[#FAF8F3]/60 font-medium text-sm">Loading studio design parameters...</p>
               </div>
             ) : (
               <>
-                {/* STEP 1: CATEGORY & CATEGORY-SPECIFIC SPECS */}
+                {/* STEP 1: CATEGORY & METAL SPECS */}
                 {currentStep === 1 && (
                   <div className="space-y-6">
                     <div>
-                      <h2 className="text-xl font-serif gold-gradient-text font-bold mb-1">Step 1: Select Jewelry Type</h2>
-                      <p className="text-xs text-[#FAF8F3]/60">Choose your base design category to reveal tailored dimension controls.</p>
+                      <h2 className="text-xl font-serif gold-gradient-text font-bold mb-1">Step 1: Choose Design Category &amp; Metal</h2>
+                      <p className="text-xs text-[#FAF8F3]/60">Select what type of jewelry you want to create and your metal preferences.</p>
                     </div>
 
-                    {/* Category Selector Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                      {categoryGroups.map(cat => {
-                        const IconComp = cat.icon;
-                        const isSel = selectedCategory === cat.id;
-                        return (
-                          <div
-                            key={cat.id}
-                            onClick={() => {
-                              setSelectedCategory(cat.id);
-                              const matched = categories.find(c => c.slug?.toLowerCase() === cat.id || c.name?.toLowerCase().includes(cat.id.slice(0, 4)));
-                              if (matched) setSelectedCategoryId(matched.id);
-                            }}
-                            className={`p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${
-                              isSel
-                                ? 'border-[#D4AF37] bg-[#121F4D]/90 shadow-[0_0_20px_rgba(212,175,55,0.2)] ring-1 ring-[#D4AF37]/50'
-                                : 'border-white/10 hover:border-[#D4AF37]/40 bg-[#09112B]/60'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className={`p-2 rounded-xl ${isSel ? 'bg-[#D4AF37] text-[#0B1330]' : 'bg-[#121F4D] text-[#D4AF37]'}`}>
-                                <IconComp className="w-5 h-5" />
+                    {/* Category Selection Grid */}
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider block">
+                        Jewelry Category
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {categoryGroups.map((cat) => {
+                          const IconComp = cat.icon;
+                          const isSelected = selectedCategory === cat.id;
+                          return (
+                            <div
+                              key={cat.id}
+                              onClick={() => {
+                                setSelectedCategory(cat.id);
+                                const match = categories.find(c => c.slug === cat.id);
+                                if (match) setSelectedCategoryId(match.id);
+                              }}
+                              className={`cursor-pointer p-4 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${
+                                isSelected
+                                  ? 'bg-gradient-to-br from-[#12204B] to-[#1E3678] border-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.25)] ring-2 ring-[#D4AF37]/50'
+                                  : 'bg-[#121F4D]/50 border-white/10 hover:border-[#D4AF37]/40 hover:bg-[#121F4D]/80'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className={`p-2.5 rounded-xl ${isSelected ? 'bg-[#D4AF37] text-[#0B1330]' : 'bg-[#09112B] text-[#D4AF37]'}`}>
+                                  <IconComp className="w-5 h-5" />
+                                </div>
+                                {isSelected && (
+                                  <div className="w-5 h-5 rounded-full bg-[#D4AF37] text-[#0B1330] flex items-center justify-center">
+                                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                  </div>
+                                )}
                               </div>
-                              <span className="font-bold text-[#FAF8F3] text-sm">{cat.name}</span>
+                              <div>
+                                <h3 className={`font-serif font-bold text-sm mb-1 ${isSelected ? 'text-[#F5E7A3]' : 'text-[#FAF8F3]'}`}>
+                                  {cat.name}
+                                </h3>
+                                <p className="text-[11px] text-[#FAF8F3]/60 leading-tight">
+                                  {cat.desc}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-xs text-[#FAF8F3]/60 line-clamp-2">{cat.desc}</p>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    {/* Ring Specific Dimension Options */}
+                    {/* Ring Specific Details */}
                     {selectedCategory === 'rings' && (
-                      <div className="bg-[#121F4D]/50 border border-[#D4AF37]/25 rounded-2xl p-5 space-y-4">
+                      <div className="bg-[#121F4D]/40 border border-[#D4AF37]/20 rounded-2xl p-5 space-y-4">
                         <div className="flex justify-between items-center">
-                          <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                            <Ruler className="w-4 h-4 text-[#D4AF37]" /> Ring Sizing & Metal Weight Specs
-                          </h3>
+                          <h4 className="font-serif gold-gradient-text font-bold text-sm flex items-center gap-2">
+                            <Ruler className="w-4 h-4 text-[#D4AF37]" /> Ring Size &amp; Target Weight
+                          </h4>
                           <button
                             type="button"
                             onClick={() => setShowRingSizeModal(true)}
-                            className="text-xs font-semibold text-[#F5E7A3] hover:text-white flex items-center gap-1 underline"
+                            className="text-xs text-[#F5E7A3] underline hover:text-[#D4AF37] flex items-center gap-1"
                           >
-                            <HelpCircle className="w-3.5 h-3.5 text-[#D4AF37]" /> Size Chart & Conversion
+                            <HelpCircle className="w-3.5 h-3.5" /> View Size Conversion Chart
                           </button>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Sizing Standard</label>
+                            <label className="text-[11px] text-[#FAF8F3]/70 font-semibold block mb-1">Size Standard</label>
                             <select
                               value={ringSizeStandard}
-                              onChange={e => setRingSizeStandard(e.target.value)}
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3 focus:border-[#D4AF37] focus:ring-[#D4AF37]"
+                              onChange={(e) => setRingSizeStandard(e.target.value)}
+                              className="w-full bg-[#09112B] border border-white/10 rounded-xl p-2.5 text-xs text-white focus:border-[#D4AF37] outline-none"
                             >
                               <option value="US">US / Canada</option>
                               <option value="UK">UK / Australia</option>
-                              <option value="IN_HK">Indian / Hong Kong</option>
-                              <option value="EU">European (ISO)</option>
-                              <option value="MM">Inside Diameter (mm)</option>
+                              <option value="IN_HK">India / Hong Kong</option>
+                              <option value="EU">EU (ISO Standard)</option>
                             </select>
                           </div>
-
                           <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Target Ring Size</label>
-                            <input
-                              type="text"
+                            <label className="text-[11px] text-[#FAF8F3]/70 font-semibold block mb-1">Target Ring Size</label>
+                            <select
                               value={ringSize}
-                              onChange={e => setRingSize(e.target.value)}
-                              placeholder="e.g. 6.5 or 16.9mm"
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3 focus:border-[#D4AF37] focus:ring-[#D4AF37]"
-                            />
+                              onChange={(e) => setRingSize(e.target.value)}
+                              className="w-full bg-[#09112B] border border-white/10 rounded-xl p-2.5 text-xs text-white focus:border-[#D4AF37] outline-none"
+                            >
+                              {RING_SIZE_CONVERSION_TABLE.map((row) => (
+                                <option key={row.us} value={row.us}>
+                                  US {row.us} ({row.inside_mm})
+                                </option>
+                              ))}
+                            </select>
                           </div>
-
                           <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Target Metal Weight (g)</label>
+                            <label className="text-[11px] text-[#FAF8F3]/70 font-semibold block mb-1">Est. Target Gold Weight (g)</label>
                             <input
-                              type="text"
+                              type="number"
+                              step="0.1"
                               value={targetWeightGrams}
-                              onChange={e => setTargetWeightGrams(e.target.value)}
-                              placeholder="e.g. 4.5g"
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3 focus:border-[#D4AF37] focus:ring-[#D4AF37]"
+                              onChange={(e) => setTargetWeightGrams(e.target.value)}
+                              placeholder="e.g. 4.5"
+                              className="w-full bg-[#09112B] border border-white/10 rounded-xl p-2.5 text-xs text-white focus:border-[#D4AF37] outline-none"
                             />
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Pendants Specific Specs */}
-                    {selectedCategory === 'pendants' && (
-                      <div className="bg-[#121F4D]/50 border border-[#D4AF37]/25 rounded-2xl p-5 space-y-4">
-                        <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                          <Ruler className="w-4 h-4 text-[#D4AF37]" /> Pendant & Necklace Dimensions
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Height (mm)</label>
-                            <input
-                              type="text"
-                              value={heightMm}
-                              onChange={e => setHeightMm(e.target.value)}
-                              placeholder="e.g. 24 mm"
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Width (mm)</label>
-                            <input
-                              type="text"
-                              value={widthMm}
-                              onChange={e => setWidthMm(e.target.value)}
-                              placeholder="e.g. 16 mm"
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Chain Preference</label>
-                            <select
-                              value={chainLength}
-                              onChange={e => setChainLength(e.target.value)}
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3"
-                            >
-                              <option value="No Chain / Pendant Only">No Chain / Pendant Only</option>
-                              <option value="16 inches (Choker)">16 inches (Choker)</option>
-                              <option value="18 inches (Standard)">18 inches (Standard)</option>
-                              <option value="20 inches (Matinee)">20 inches (Matinee)</option>
-                              <option value="24 inches (Opera)">24 inches (Opera)</option>
-                            </select>
-                          </div>
+                    {/* Metal & Alloy Options */}
+                    {groupMap['metal'] && (
+                      <div className="space-y-3">
+                        <label className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider block">
+                          Metal Alloy
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                          {groupMap['metal'].options.map((opt) => {
+                            const isSelected = selections['metal'] === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setSelections(prev => ({ ...prev, metal: opt.id }))}
+                                className={`p-3 rounded-xl border text-left transition-all flex flex-col items-center justify-center gap-2 ${
+                                  isSelected
+                                    ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#F5E7A3] shadow-[0_0_12px_rgba(212,175,55,0.3)] font-bold'
+                                    : 'bg-[#121F4D]/40 border-white/10 text-slate-300 hover:bg-[#121F4D]/80'
+                                }`}
+                              >
+                                {opt.swatch_color && (
+                                  <span
+                                    className="w-5 h-5 rounded-full border border-white/20 shadow-inner"
+                                    style={{ backgroundColor: opt.swatch_color }}
+                                  />
+                                )}
+                                <span className="text-xs text-center">{opt.label}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
 
-                    {/* Earrings Specific Specs */}
-                    {selectedCategory === 'earrings' && (
-                      <div className="bg-[#121F4D]/50 border border-[#D4AF37]/25 rounded-2xl p-5 space-y-4">
-                        <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                          <Ruler className="w-4 h-4 text-[#D4AF37]" /> Earring Architecture
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Drop Length / Stud Diameter (mm)</label>
-                            <input
-                              type="text"
-                              value={heightMm}
-                              onChange={e => setHeightMm(e.target.value)}
-                              placeholder="e.g. 12mm stud or 45mm drop"
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Backing Mechanism</label>
-                            <select
-                              value={earringBacking}
-                              onChange={e => setEarringBacking(e.target.value)}
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3"
-                            >
-                              <option value="Push Back">Push Back (Friction Post)</option>
-                              <option value="Screw Back">Screw Back (Security Post)</option>
-                              <option value="Lever Back">Lever Back</option>
-                              <option value="French Hook">French Wire / Fish Hook</option>
-                              <option value="Hoop Catch">Hinged Hoop Catch</option>
-                            </select>
-                          </div>
+                    {/* Gold Purity */}
+                    {isGoldSelected && groupMap['gold_purity'] && (
+                      <div className="space-y-3">
+                        <label className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider block">
+                          Gold Purity
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                          {groupMap['gold_purity'].options.map((opt) => {
+                            const isSelected = selections['gold_purity'] === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setSelections(prev => ({ ...prev, gold_purity: opt.id }))}
+                                className={`py-2.5 px-3 rounded-xl border text-center text-xs font-semibold transition-all ${
+                                  isSelected
+                                    ? 'bg-[#D4AF37] text-[#0B1330] font-bold border-[#D4AF37]'
+                                    : 'bg-[#121F4D]/40 text-slate-300 border-white/10 hover:bg-[#121F4D]/80'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
 
-                    {/* Bracelets Specific Specs */}
-                    {selectedCategory === 'bracelets' && (
-                      <div className="bg-[#121F4D]/50 border border-[#D4AF37]/25 rounded-2xl p-5 space-y-4">
-                        <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                          <Ruler className="w-4 h-4 text-[#D4AF37]" /> Wrist & Bangle Dimensions
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Wrist Circumference / Inner Diameter</label>
-                            <input
-                              type="text"
-                              value={wristCircumference}
-                              onChange={e => setWristCircumference(e.target.value)}
-                              placeholder="e.g. 7.0 inches or 2.4 Kada size"
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Bracelet Type</label>
-                            <select
-                              value={braceletStyle}
-                              onChange={e => setBraceletStyle(e.target.value)}
-                              className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3"
-                            >
-                              <option value="Kada">Traditional Kada</option>
-                              <option value="Tennis Bracelet">Tennis Bracelet (Continuous Stones)</option>
-                              <option value="Link / Chain">Link / Charm Chain</option>
-                              <option value="Rigid Cuff">Rigid Cuff</option>
-                              <option value="Flexible Bangle">Flexible Stackable Bangle</option>
-                            </select>
-                          </div>
+                    {/* Design Style */}
+                    {groupMap['design_style'] && (
+                      <div className="space-y-3">
+                        <label className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider block">
+                          Design Setting Architecture
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {groupMap['design_style'].options.map((opt) => {
+                            const isSelected = selections['design_style'] === opt.id;
+                            return (
+                              <div
+                                key={opt.id}
+                                onClick={() => setSelections(prev => ({ ...prev, design_style: opt.id }))}
+                                className={`cursor-pointer p-3.5 rounded-xl border transition-all ${
+                                  isSelected
+                                    ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-white'
+                                    : 'bg-[#121F4D]/40 border-white/10 text-slate-300 hover:bg-[#121F4D]/80'
+                                }`}
+                              >
+                                <div className="font-bold text-xs text-[#F5E7A3] mb-1">{opt.label}</div>
+                                <div className="text-[11px] text-slate-400 leading-tight">{opt.description}</div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
 
-                    {/* Custom Specs for Other */}
-                    {selectedCategory === 'other' && (
-                      <div className="bg-[#121F4D]/50 border border-[#D4AF37]/25 rounded-2xl p-5 space-y-4">
-                        <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                          <Feather className="w-4 h-4 text-[#D4AF37]" /> Custom Concept Requirements
-                        </h3>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Dimensional & Structural Requirements</label>
-                          <textarea
-                            rows={3}
-                            value={customSpecsText}
-                            onChange={e => setCustomSpecsText(e.target.value)}
-                            placeholder="Describe target dimensions, pin backings, hinges, or special structural mechanisms..."
-                            className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] p-3"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* CAD Deliverable Format Dropdown */}
-                    {groupMap['cad_file_format'] && (
-                      <div>
-                        <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Required CAD Output Format</label>
-                        <select
-                          value={selections['cad_file_format'] || ''}
-                          onChange={e => setSelections(prev => ({ ...prev, cad_file_format: Number(e.target.value) }))}
-                          className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3"
-                        >
-                          {(groupMap['cad_file_format'].options || [])
-                            .filter(o => o.is_active)
-                            .map(opt => (
-                              <option key={opt.id} value={opt.id}>
-                                {opt.label} {opt.description ? `(${opt.description})` : ''}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    )}
+                    {/* Navigation Buttons */}
+                    <div className="pt-4 border-t border-white/10 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStep(2)}
+                        className="px-8 py-3.5 btn-gold-luxury font-bold text-xs rounded-xl shadow-lg flex items-center gap-2"
+                      >
+                        Continue to Photos &amp; Notes <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                {/* STEP 2: METAL & DESIGN STYLE */}
+                {/* STEP 2: PHOTOS & DESIGN NOTES */}
                 {currentStep === 2 && (
                   <div className="space-y-6">
                     <div>
-                      <h2 className="text-xl font-serif gold-gradient-text font-bold mb-1">Step 2: Metal Alloy & Design Style</h2>
-                      <p className="text-xs text-[#FAF8F3]/60">Select your target metal alloy, gold purity, and structural aesthetic profile.</p>
+                      <h2 className="text-xl font-serif gold-gradient-text font-bold mb-1">Step 2: Reference Photos &amp; Voice Instructions</h2>
+                      <p className="text-xs text-[#FAF8F3]/60">Upload sketches or inspirational photos, write specifications, or speak a voice note.</p>
                     </div>
 
-                    {/* Metal Alloy Selector */}
-                    {groupMap['metal'] && (
-                      <div className="space-y-3">
-                        <label className="block text-xs font-bold text-[#F5E7A3] uppercase tracking-wider">Metal Alloy Selection</label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {(groupMap['metal'].options || [])
-                            .filter(o => o.is_active)
-                            .map(opt => {
-                              const isSel = selections['metal'] === opt.id;
-                              return (
-                                <div
-                                  key={opt.id}
-                                  onClick={() => setSelections(prev => ({ ...prev, metal: opt.id }))}
-                                  className={`p-3.5 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all duration-300 ${
-                                    isSel
-                                      ? 'border-[#D4AF37] bg-[#121F4D] shadow-[0_0_15px_rgba(212,175,55,0.3)] ring-1 ring-[#D4AF37]/50'
-                                      : 'border-white/10 hover:border-[#D4AF37]/30 bg-[#09112B]/60'
-                                  }`}
-                                >
-                                  <span
-                                    className="w-7 h-7 rounded-full border border-white/20 shadow-inner flex-shrink-0"
-                                    style={{ backgroundColor: opt.swatch_color || '#E5E4E2' }}
-                                  />
-                                  <div>
-                                    <p className="font-bold text-[#FAF8F3] text-xs">{opt.label}</p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Gold Purity Selector - Only shown if Gold is selected */}
-                    {isGoldSelected && groupMap['gold_purity'] && (
-                      <div className="space-y-3 bg-[#121F4D]/50 border border-[#D4AF37]/30 rounded-2xl p-4">
-                        <label className="block text-xs font-bold text-[#F5E7A3] uppercase tracking-wider flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" /> Gold Purity Standard
+                    {/* Upload Reference Files */}
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider block">
+                        Upload Reference Images / CAD Sketches
+                      </label>
+                      <div className="border-2 border-dashed border-[#D4AF37]/40 hover:border-[#D4AF37] rounded-2xl p-6 text-center bg-[#121F4D]/30 transition-colors">
+                        <Upload className="w-8 h-8 text-[#D4AF37] mx-auto mb-2" />
+                        <p className="text-xs font-semibold text-slate-200 mb-1">
+                          Drag &amp; drop reference images or click to browse
+                        </p>
+                        <p className="text-[11px] text-slate-400 mb-4">
+                          Supports PNG, JPG, WEBP, PDF, CAD files up to 25MB each
+                        </p>
+                        <label className="inline-block px-5 py-2.5 bg-[#D4AF37] text-[#0B1330] font-bold text-xs rounded-xl cursor-pointer hover:bg-[#F5E7A3] transition-colors">
+                          Browse Files
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*,.pdf,.3dm,.stl"
+                            onChange={handleSketchUpload}
+                            className="hidden"
+                          />
                         </label>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                          {(groupMap['gold_purity'].options || [])
-                            .filter(o => o.is_active)
-                            .map(opt => {
-                              const isSel = selections['gold_purity'] === opt.id;
-                              return (
-                                <button
-                                  key={opt.id}
-                                  type="button"
-                                  onClick={() => setSelections(prev => ({ ...prev, gold_purity: opt.id }))}
-                                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all ${
-                                    isSel
-                                      ? 'bg-[#D4AF37] text-[#0B1330] border-[#F5E7A3] shadow-md font-extrabold'
-                                      : 'bg-[#09112B] text-[#FAF8F3]/80 border-white/10 hover:border-[#D4AF37]/40'
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              );
-                            })}
-                        </div>
                       </div>
-                    )}
 
-                    {/* Design Style Selector */}
-                    {groupMap['design_style'] && (
-                      <div className="space-y-3">
-                        <label className="block text-xs font-bold text-[#F5E7A3] uppercase tracking-wider">Aesthetic & Setting Architecture</label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {(groupMap['design_style'].options || [])
-                            .filter(o => o.is_active)
-                            .map(opt => {
-                              const isSel = selections['design_style'] === opt.id;
-                              return (
-                                <div
-                                  key={opt.id}
-                                  onClick={() => setSelections(prev => ({ ...prev, design_style: opt.id }))}
-                                  className={`p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${
-                                    isSel
-                                      ? 'border-[#D4AF37] bg-[#121F4D] shadow-[0_0_15px_rgba(212,175,55,0.3)] ring-1 ring-[#D4AF37]/50'
-                                      : 'border-white/10 hover:border-[#D4AF37]/30 bg-[#09112B]/60'
-                                  }`}
-                                >
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-bold text-[#FAF8F3] text-sm">{opt.label}</span>
-                                  </div>
-                                  {opt.description && (
-                                    <p className="text-xs text-[#FAF8F3]/60">{opt.description}</p>
-                                  )}
-                                </div>
-                              );
-                            })}
+                      {/* Image Previews */}
+                      {sketchPreviews.length > 0 && (
+                        <div className="flex flex-wrap gap-3 pt-2">
+                          {sketchPreviews.map((preview, idx) => (
+                            <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-[#D4AF37]/40 bg-[#09112B]">
+                              <img src={preview} alt="Sketch upload" className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => removeSketch(idx)}
+                                className="absolute top-1 right-1 p-1 bg-black/70 text-red-400 rounded-full hover:bg-black"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                    )}
-
-                    {/* Ring Type Selector (if category is rings) */}
-                    {selectedCategory === 'rings' && groupMap['ring_type'] && (
-                      <div className="space-y-3">
-                        <label className="block text-xs font-bold text-[#F5E7A3] uppercase tracking-wider">Ring Style Profile</label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                          {(groupMap['ring_type'].options || [])
-                            .filter(o => o.is_active)
-                            .map(opt => {
-                              const isSel = selections['ring_type'] === opt.id;
-                              return (
-                                <button
-                                  key={opt.id}
-                                  type="button"
-                                  onClick={() => setSelections(prev => ({ ...prev, ring_type: opt.id }))}
-                                  className={`p-2.5 text-xs font-semibold rounded-xl border text-left transition-all ${
-                                    isSel
-                                      ? 'bg-[#1E4FA3] text-white border-[#5B8DEF]/60 font-bold shadow-md'
-                                      : 'bg-[#09112B] text-[#FAF8F3]/70 border-white/10 hover:border-[#D4AF37]/30'
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* STEP 3: STONES & GEMSTONES */}
-                {currentStep === 3 && (
-                  <div className="space-y-6">
-                    <div>
-                      <h2 className="text-xl font-serif gold-gradient-text font-bold mb-1">Step 3: Gemstones & Setting Architecture</h2>
-                      <p className="text-xs text-[#FAF8F3]/60">Configure multi-stone arrangements, stone shapes, and precise seat clearances.</p>
+                      )}
                     </div>
 
-                    {/* Metal-only Toggle */}
-                    <div className="bg-[#121F4D]/60 border border-[#D4AF37]/30 rounded-2xl p-4 flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-[#FAF8F3] text-sm">Solid Metal Design (No Stones)</h4>
-                        <p className="text-xs text-[#FAF8F3]/60">Enable if your design is plain gold/silver band or engraving-only piece.</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                    {/* Voice Instructions Control & Textarea */}
+                    <VoiceInstructionsControl
+                      value={specialInstructions}
+                      onChange={setSpecialInstructions}
+                      onAudioFileAttached={handleAudioFileAttached}
+                      onAudioFileRemoved={handleAudioFileRemoved}
+                    />
+
+                    {/* Gemstone / Metal Only Option */}
+                    <div className="bg-[#121F4D]/40 border border-white/10 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-serif text-xs font-bold text-[#F5E7A3]">Metal-Only Design (No Gemstones)</h4>
+                          <p className="text-[11px] text-slate-400">Enable if your design is plain metal without stone seats.</p>
+                        </div>
                         <input
                           type="checkbox"
                           checked={isMetalOnly}
-                          onChange={e => setIsMetalOnly(e.target.checked)}
-                          className="sr-only peer"
+                          onChange={(e) => setIsMetalOnly(e.target.checked)}
+                          className="w-4 h-4 accent-[#D4AF37] rounded cursor-pointer"
                         />
-                        <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#D4AF37]"></div>
-                      </label>
+                      </div>
                     </div>
 
+                    {/* Stones Table (if not metal only) */}
                     {!isMetalOnly && (
-                      <div className="space-y-4">
+                      <div className="space-y-4 pt-2">
                         <div className="flex justify-between items-center">
-                          <h3 className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider flex items-center gap-1.5">
-                            <Gem className="w-4 h-4 text-[#D4AF37]" /> Stone Layout Breakdown ({stonesList.length})
-                          </h3>
+                          <label className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider block">
+                            Gemstone Breakdown
+                          </label>
                           <button
                             type="button"
                             onClick={addStoneRow}
-                            className="px-3 py-1.5 bg-[#D4AF37]/15 text-[#F5E7A3] hover:bg-[#D4AF37]/25 border border-[#D4AF37]/40 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                            className="px-3 py-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#F5E7A3] font-bold text-xs rounded-lg hover:bg-[#D4AF37]/30 flex items-center gap-1"
                           >
-                            <Plus className="w-3.5 h-3.5" /> Add Another Stone Row
+                            <Plus className="w-3.5 h-3.5 text-[#D4AF37]" /> Add Stone
                           </button>
                         </div>
 
-                        {stonesList.map((stone, idx) => (
-                          <div key={idx} className="p-4 bg-[#121F4D]/40 border border-white/10 rounded-2xl relative space-y-3">
-                            <div className="flex justify-between items-center pb-2 border-b border-white/10">
-                              <span className="text-xs font-bold text-[#F5E7A3] uppercase">
-                                Stone #{idx + 1} {stone.is_center_stone ? '(Main Centerpiece)' : '(Accent Stone)'}
-                              </span>
-                              {stonesList.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeStoneRow(idx)}
-                                  className="text-rose-400 hover:text-rose-300 text-xs font-semibold flex items-center gap-1"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" /> Remove
-                                </button>
-                              )}
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <div>
-                                <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Stone Type</label>
-                                <select
-                                  value={stone.stone_type}
-                                  onChange={e => updateStoneRow(idx, 'stone_type', e.target.value)}
-                                  className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-2.5"
-                                >
-                                  <option value="Natural Diamond">Natural Diamond</option>
-                                  <option value="Lab Diamond">Lab-Grown Diamond</option>
-                                  <option value="Moissanite">Moissanite</option>
-                                  <option value="Blue Sapphire">Blue Sapphire</option>
-                                  <option value="Emerald">Colombian Emerald</option>
-                                  <option value="Ruby">Burmese Ruby</option>
-                                  <option value="Cubic Zirconia">Cubic Zirconia (CZ)</option>
-                                  <option value="Other Gemstone">Other Precious Gemstone</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Stone Shape</label>
-                                <select
-                                  value={stone.shape}
-                                  onChange={e => updateStoneRow(idx, 'shape', e.target.value)}
-                                  className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-2.5"
-                                >
-                                  {(groupMap['stone_shape']?.options || [])
-                                    .filter(o => o.is_active)
-                                    .map(o => (
-                                      <option key={o.id} value={o.label}>{o.label}</option>
-                                    ))}
-                                  {(!groupMap['stone_shape'] || groupMap['stone_shape'].options.length === 0) && (
-                                    <>
-                                      <option value="Round Brilliant">Round Brilliant</option>
-                                      <option value="Oval">Oval</option>
-                                      <option value="Emerald Cut">Emerald Cut</option>
-                                      <option value="Princess">Princess</option>
-                                      <option value="Cushion">Cushion</option>
-                                      <option value="Pear">Pear</option>
-                                    </>
-                                  )}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Setting Style</label>
-                                <select
-                                  value={stone.setting_style}
-                                  onChange={e => updateStoneRow(idx, 'setting_style', e.target.value)}
-                                  className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-2.5"
-                                >
-                                  {(groupMap['stone_setting']?.options || [])
-                                    .filter(o => o.is_active)
-                                    .map(o => (
-                                      <option key={o.id} value={o.label}>{o.label}</option>
-                                    ))}
-                                  {(!groupMap['stone_setting'] || groupMap['stone_setting'].options.length === 0) && (
-                                    <>
-                                      <option value="Prong">Prong</option>
-                                      <option value="Bezel">Bezel</option>
-                                      <option value="Channel">Channel</option>
-                                      <option value="Pave">Pave</option>
-                                      <option value="Flush">Flush</option>
-                                    </>
-                                  )}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Size Value & Unit</label>
-                                <div className="flex gap-1">
-                                  <input
-                                    type="text"
-                                    value={stone.size_value}
-                                    onChange={e => updateStoneRow(idx, 'size_value', e.target.value)}
-                                    placeholder="1.0"
-                                    className="w-1/2 text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-2"
-                                  />
-                                  <select
-                                    value={stone.size_unit}
-                                    onChange={e => updateStoneRow(idx, 'size_unit', e.target.value)}
-                                    className="w-1/2 text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-1"
-                                  >
-                                    <option value="carat">carat (ct)</option>
-                                    <option value="mm">mm size</option>
-                                  </select>
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Stone Clarity Grade</label>
-                                <select
-                                  value={stone.clarity}
-                                  onChange={e => updateStoneRow(idx, 'clarity', e.target.value)}
-                                  className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-2.5"
-                                >
-                                  <option value="VVS1">VVS1 (Very Very Slight)</option>
-                                  <option value="VVS2">VVS2</option>
-                                  <option value="VS1">VS1 (Very Slight)</option>
-                                  <option value="VS2">VS2</option>
-                                  <option value="SI1">SI1 (Slight Inclusion)</option>
-                                  <option value="SI2">SI2</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Stone Count (Qty)</label>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={stone.quantity}
-                                  onChange={e => updateStoneRow(idx, 'quantity', parseInt(e.target.value) || 1)}
-                                  className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-2.5"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 pt-1">
-                              <input
-                                type="checkbox"
-                                id={`center_stone_${idx}`}
-                                checked={stone.is_center_stone || false}
-                                onChange={e => updateStoneRow(idx, 'is_center_stone', e.target.checked)}
-                                className="rounded border-white/20 text-[#D4AF37] focus:ring-[#D4AF37]"
-                              />
-                              <label htmlFor={`center_stone_${idx}`} className="text-xs font-medium text-[#FAF8F3]/80 cursor-pointer">
-                                Mark as Main Centerpiece Stone
-                              </label>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* STEP 4: BRANDING & REFERENCES */}
-                {currentStep === 4 && (
-                  <div className="space-y-6">
-                    <div>
-                      <h2 className="text-xl font-serif gold-gradient-text font-bold mb-1">Step 4: Branding & Reference Attachments</h2>
-                      <p className="text-xs text-[#FAF8F3]/60">Select catalog designs or upload custom reference sketches & hallmark vector logos.</p>
-                    </div>
-
-                    {/* Engraving Specs */}
-                    <div className="bg-[#121F4D]/50 border border-[#D4AF37]/30 rounded-2xl p-5 space-y-4">
-                      <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-[#D4AF37]" /> Custom Engraving Personalization
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Engraving Text</label>
-                          <input
-                            type="text"
-                            value={engravingText}
-                            onChange={e => setEngravingText(e.target.value)}
-                            placeholder="e.g. Forever & Always"
-                            className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Font Style</label>
-                          <select
-                            value={engravingFont}
-                            onChange={e => setEngravingFont(e.target.value)}
-                            className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3"
-                          >
-                            <option value="Script">Calligraphy Script</option>
-                            <option value="Block">Modern Block Sans</option>
-                            <option value="Roman">Classic Roman Serif</option>
-                            <option value="Gothic">Vintage Gothic</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">Placement</label>
-                          <select
-                            value={engravingPlacement}
-                            onChange={e => setEngravingPlacement(e.target.value)}
-                            className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3"
-                          >
-                            <option value="Inside Shank">Inside Shank / Band</option>
-                            <option value="Outside Shank">Outside Shank</option>
-                            <option value="Pendant Backing">Pendant Backplate</option>
-                            <option value="Bail">Bail Accent</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Studio / Brand Logo Upload */}
-                    <div className="bg-[#121F4D]/50 border border-[#D4AF37]/30 rounded-2xl p-5 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4 text-[#D4AF37]" /> Studio Hallmark & Vector Logo Stamp
-                          </h3>
-                          <p className="text-xs text-[#FAF8F3]/60">Stamp your studio hallmark directly onto 3D model geometry.</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={hasLogo}
-                            onChange={e => setHasLogo(e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#D4AF37]"></div>
-                        </label>
-                      </div>
-
-                      {hasLogo && (
-                        <div className="pt-2">
-                          <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5">
-                            Upload Vector Logo (.svg, .ai, .eps, .pdf, .png, .jpg)
-                          </label>
-                          <input
-                            type="file"
-                            accept=".svg,.ai,.eps,.pdf,.png,.jpg,.jpeg"
-                            onChange={handleLogoUpload}
-                            className="block w-full text-xs text-[#FAF8F3]/70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#D4AF37] file:text-[#0B1330] hover:file:bg-[#F5E7A3]"
-                          />
-                          {logoError && (
-                            <p className="text-xs text-rose-400 font-semibold mt-1.5 flex items-center gap-1">
-                              <AlertCircle className="w-3.5 h-3.5" /> {logoError}
-                            </p>
-                          )}
-                          {logoFile && !logoError && (
-                            <div className="mt-2 flex items-center gap-2 text-xs text-emerald-400 font-medium">
-                              <CheckCircle2 className="w-4 h-4" /> Selected: {logoFile.name}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* REFERENCE IMAGES / HAND SKETCHES SECTION - DUAL OPTION (CATALOG vs UPLOAD) */}
-                    <div className="bg-[#121F4D]/50 border border-[#D4AF37]/30 rounded-2xl p-5 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
-                        <div>
-                          <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                            <Grid className="w-4 h-4 text-[#D4AF37]" /> Reference Designs & Hand Sketches
-                          </h3>
-                          <p className="text-xs text-[#FAF8F3]/60">Choose from existing studio CAD catalog products or upload custom hand sketches.</p>
-                        </div>
-
-                        {/* Dual Option Mode Tabs */}
-                        <div className="inline-flex bg-[#09112B] p-1 rounded-xl border border-[#D4AF37]/30">
-                          <button
-                            type="button"
-                            onClick={() => setActiveReferenceTab('catalog')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                              activeReferenceTab === 'catalog'
-                                ? 'bg-gradient-to-r from-[#F5E7A3] via-[#D4AF37] to-[#B8860B] text-[#0B1330] shadow-md'
-                                : 'text-[#FAF8F3]/70 hover:text-white'
-                            }`}
-                          >
-                            <Grid className="w-3.5 h-3.5" /> Option 1: Existing Studio Products
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveReferenceTab('upload')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                              activeReferenceTab === 'upload'
-                                ? 'bg-gradient-to-r from-[#F5E7A3] via-[#D4AF37] to-[#B8860B] text-[#0B1330] shadow-md'
-                                : 'text-[#FAF8F3]/70 hover:text-white'
-                            }`}
-                          >
-                            <Upload className="w-3.5 h-3.5" /> Option 2: Upload Custom File
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Selected Catalog References summary bar */}
-                      {selectedCatalogProducts.length > 0 && (
-                        <div className="p-3 bg-[#09112B]/90 border border-[#D4AF37]/40 rounded-xl space-y-2">
-                          <span className="text-[11px] font-bold text-[#F5E7A3] uppercase tracking-wider flex items-center gap-1">
-                            <CheckSquare className="w-3.5 h-3.5 text-[#D4AF37]" /> Selected Studio Catalog References ({selectedCatalogProducts.length})
-                          </span>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedCatalogProducts.map(p => (
-                              <div key={p.id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#121F4D] border border-[#D4AF37]/30 text-xs text-[#FAF8F3]">
-                                <img src={p.image} alt={p.title} className="w-5 h-5 rounded object-cover" />
-                                <span className="truncate max-w-[150px] font-semibold">{p.title}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleCatalogProductRef(p)}
-                                  className="text-rose-400 hover:text-rose-200"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* TAB 1: EXISTING CATALOG PRODUCTS */}
-                      {activeReferenceTab === 'catalog' && (
                         <div className="space-y-3">
-                          {/* Search & Category Filter Controls */}
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <div className="relative flex-1">
-                              <Search className="w-4 h-4 text-[#D4AF37] absolute left-3 top-2.5" />
-                              <input
-                                type="text"
-                                value={catalogSearchQuery}
-                                onChange={e => setCatalogSearchQuery(e.target.value)}
-                                placeholder="Search studio catalog products by title or SKU..."
-                                className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 pl-9 pr-3"
-                              />
-                            </div>
-                            <select
-                              value={catalogCategoryFilter}
-                              onChange={e => setCatalogCategoryFilter(e.target.value)}
-                              className="text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3 sm:w-44"
-                            >
-                              <option value="all">All Categories</option>
-                              <option value="ring">Rings</option>
-                              <option value="pendant">Pendants & Necklaces</option>
-                              <option value="earring">Earrings</option>
-                              <option value="bangle">Bracelets & Bangles</option>
-                            </select>
-                          </div>
-
-                          {/* Product Grid Picker */}
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
-                            {filteredCatalogItems.map(item => {
-                              const isSel = selectedCatalogProducts.some(p => String(p.id) === String(item.id));
-                              return (
-                                <div
-                                  key={item.id}
-                                  onClick={() => toggleCatalogProductRef(item)}
-                                  className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative group ${
-                                    isSel
-                                      ? 'border-[#D4AF37] bg-[#121F4D] shadow-[0_0_12px_rgba(212,175,55,0.4)] ring-1 ring-[#D4AF37]'
-                                      : 'border-white/10 hover:border-[#D4AF37]/40 bg-[#09112B]/70'
-                                  }`}
-                                >
-                                  <div className="aspect-square w-full rounded-lg overflow-hidden bg-slate-900 mb-2 relative">
-                                    <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                    {isSel && (
-                                      <div className="absolute top-1.5 right-1.5 p-1 bg-[#D4AF37] text-[#0B1330] rounded-full shadow-md">
-                                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p className="font-bold text-[#FAF8F3] text-xs line-clamp-1">{item.title}</p>
-                                    <span className="text-[10px] text-[#D4AF37] block">Ref SKU #{item.id}</span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                            {filteredCatalogItems.length === 0 && (
-                              <div className="col-span-full py-8 text-center text-xs text-[#FAF8F3]/50">
-                                No matching studio catalog products found. Try changing your search query or upload a custom sketch file.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* TAB 2: UPLOAD CUSTOM SKETCHES & FILES */}
-                      {activeReferenceTab === 'upload' && (
-                        <div className="space-y-3">
-                          <div className="border-2 border-dashed border-[#D4AF37]/40 rounded-2xl p-6 text-center hover:border-[#D4AF37] bg-[#09112B]/60 transition-all cursor-pointer relative">
-                            <input
-                              type="file"
-                              multiple
-                              accept="image/*,.pdf"
-                              onChange={handleSketchUpload}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            <Upload className="w-8 h-8 text-[#D4AF37] mx-auto mb-2" />
-                            <p className="text-xs font-bold text-[#FAF8F3]">Click or drag custom reference sketches here</p>
-                            <p className="text-[11px] text-[#FAF8F3]/50">PNG, JPG, PDF up to 10MB each</p>
-                          </div>
-
-                          {sketchPreviews.length > 0 && (
-                            <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 pt-2">
-                              {sketchPreviews.map((url, i) => (
-                                <div key={i} className="relative group rounded-xl overflow-hidden border border-white/20 aspect-square bg-slate-900">
-                                  <img src={url} alt={`Sketch ${i}`} className="w-full h-full object-cover" />
+                          {stonesList.map((st, idx) => (
+                            <div key={idx} className="p-4 bg-[#121F4D]/50 border border-white/10 rounded-2xl space-y-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs font-bold text-[#F5E7A3]">
+                                  {st.is_center_stone ? '💎 Center Stone' : `Accent Stone #${idx}`}
+                                </span>
+                                {stonesList.length > 1 && (
                                   <button
                                     type="button"
-                                    onClick={() => removeSketch(i)}
-                                    className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                    onClick={() => removeStoneRow(idx)}
+                                    className="text-red-400 hover:text-red-300 p-1"
                                   >
-                                    <X className="w-3 h-3" />
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div>
+                                  <label className="text-[10px] text-slate-400 font-semibold block mb-1">Stone Type</label>
+                                  <input
+                                    type="text"
+                                    value={st.stone_type}
+                                    onChange={(e) => updateStoneRow(idx, 'stone_type', e.target.value)}
+                                    placeholder="e.g. Natural Diamond"
+                                    className="w-full bg-[#09112B] border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-[#D4AF37]"
+                                  />
                                 </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Notes & Instructions */}
-                    <div>
-                      <label className="block text-xs font-bold text-[#F5E7A3] uppercase tracking-wider mb-1.5">Special Design Notes</label>
-                      <textarea
-                        rows={3}
-                        value={specialInstructions}
-                        onChange={e => setSpecialInstructions(e.target.value)}
-                        placeholder="Add specific instructions regarding prong thickness, metal relief, hollow interior, or stone clearance..."
-                        className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3"
-                      />
-                    </div>
-
-                    {/* Complexity Tier & Timeline */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5 flex items-center gap-1">
-                          <Award className="w-3.5 h-3.5 text-[#D4AF37]" /> Production Complexity Tier
-                        </label>
-                        <select
-                          value={projectTier}
-                          onChange={e => setProjectTier(e.target.value)}
-                          className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2.5 px-3"
-                        >
-                          <option value="Standard Commercial CAD">Standard Commercial CAD</option>
-                          <option value="High Precision Fine Jewelry">High Precision Fine Jewelry</option>
-                          <option value="Exquisite Masterpiece">Exquisite Masterpiece</option>
-                          <option value="Haute Joaillerie Atelier">Haute Joaillerie Atelier</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-[#FAF8F3]/80 mb-1.5 flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-[#D4AF37]" /> Target Completion Date (Optional)
-                        </label>
-                        <input
-                          type="date"
-                          value={neededByDate}
-                          onChange={e => setNeededByDate(e.target.value)}
-                          className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* STEP 5: REVIEW & DISPATCH */}
-                {currentStep === 5 && (
-                  <div className="space-y-6">
-                    <div>
-                      <h2 className="text-xl font-serif gold-gradient-text font-bold mb-1">Step 5: Final Review & Dispatch</h2>
-                      <p className="text-xs text-[#FAF8F3]/60">Verify your details before choosing whether to Request a Free Quote or Submit Custom CAD Order directly.</p>
-                    </div>
-
-                    {/* Contact Information */}
-                    <div className="bg-[#121F4D]/50 border border-[#D4AF37]/30 rounded-2xl p-5 space-y-3">
-                      <h3 className="text-xs font-serif gold-gradient-text font-bold uppercase tracking-widest flex items-center gap-2">
-                        Client & Studio Contact Info
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Full Name</label>
-                          <input
-                            type="text"
-                            value={clientName}
-                            onChange={e => setClientName(e.target.value)}
-                            placeholder="Client Name"
-                            className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Email Address</label>
-                          <input
-                            type="email"
-                            value={clientEmail}
-                            onChange={e => setClientEmail(e.target.value)}
-                            placeholder="email@studio.com"
-                            className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-[#FAF8F3]/70 mb-1">Phone Number</label>
-                          <input
-                            type="text"
-                            value={clientPhone}
-                            onChange={e => setClientPhone(e.target.value)}
-                            placeholder="+1 / +91 phone"
-                            className="w-full text-xs rounded-xl border border-[#D4AF37]/30 bg-[#09112B] text-[#FAF8F3] py-2 px-3"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Selected References Review */}
-                    {selectedCatalogProducts.length > 0 && (
-                      <div className="bg-[#121F4D]/50 border border-[#D4AF37]/30 rounded-2xl p-4 space-y-2">
-                        <span className="text-xs font-bold text-[#F5E7A3] uppercase tracking-wider flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" /> Selected Studio Catalog References ({selectedCatalogProducts.length})
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {selectedCatalogProducts.map(p => (
-                            <div key={p.id} className="flex items-center gap-3 p-2 bg-[#09112B] rounded-xl border border-white/10">
-                              <img src={p.image} alt={p.title} className="w-10 h-10 rounded-lg object-cover" />
-                              <div className="overflow-hidden">
-                                <p className="font-bold text-xs text-[#FAF8F3] truncate">{p.title}</p>
-                                <span className="text-[10px] text-[#D4AF37]">SKU #{p.id}</span>
+                                <div>
+                                  <label className="text-[10px] text-slate-400 font-semibold block mb-1">Shape</label>
+                                  <select
+                                    value={st.shape}
+                                    onChange={(e) => updateStoneRow(idx, 'shape', e.target.value)}
+                                    className="w-full bg-[#09112B] border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-[#D4AF37]"
+                                  >
+                                    <option value="Round Brilliant">Round Brilliant</option>
+                                    <option value="Oval">Oval</option>
+                                    <option value="Emerald Cut">Emerald Cut</option>
+                                    <option value="Pear Shape">Pear Shape</option>
+                                    <option value="Cushion Cut">Cushion Cut</option>
+                                    <option value="Princess Cut">Princess Cut</option>
+                                    <option value="Marquise">Marquise</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-slate-400 font-semibold block mb-1">Size / Weight</label>
+                                  <input
+                                    type="text"
+                                    value={st.size_value}
+                                    onChange={(e) => updateStoneRow(idx, 'size_value', e.target.value)}
+                                    placeholder="1.0 ct"
+                                    className="w-full bg-[#09112B] border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-[#D4AF37]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-slate-400 font-semibold block mb-1">Quantity</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={st.quantity}
+                                    onChange={(e) => updateStoneRow(idx, 'quantity', parseInt(e.target.value) || 1)}
+                                    className="w-full bg-[#09112B] border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-[#D4AF37]"
+                                  />
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -1949,225 +1685,189 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
                       </div>
                     )}
 
-                    {/* Delivery Turnaround Option */}
-                    {groupMap['delivery_speed'] && (
-                      <div className="space-y-2">
-                        <label className="block text-xs font-bold text-[#F5E7A3] uppercase tracking-wider flex items-center gap-1.5">
-                          <Clock className="w-4 h-4 text-[#D4AF37]" /> Turnaround Speed
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {(groupMap['delivery_speed'].options || [])
-                            .filter(o => o.is_active)
-                            .map(opt => {
-                              const isSel = selectedDeliverySpeedId === opt.id;
-                              return (
-                                <div
-                                  key={opt.id}
-                                  onClick={() => setSelectedDeliverySpeedId(opt.id)}
-                                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all duration-300 ${
-                                    isSel
-                                      ? 'border-[#D4AF37] bg-[#121F4D] shadow-[0_0_15px_rgba(212,175,55,0.3)] ring-1 ring-[#D4AF37]/50'
-                                      : 'border-white/10 hover:border-[#D4AF37]/30 bg-[#09112B]/60'
-                                  }`}
-                                >
-                                  <p className="font-bold text-[#FAF8F3] text-xs">{opt.label}</p>
-                                  <p className="text-[11px] text-[#FAF8F3]/60">{opt.description}</p>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Portfolio Feature Consent Checkbox */}
-                    <div className="p-4 bg-[#121F4D]/40 border border-[#D4AF37]/30 rounded-2xl flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        id="clientConsent"
-                        checked={clientConsent}
-                        onChange={(e) => setClientConsent(e.target.checked)}
-                        className="mt-1 rounded border-[#D4AF37]/50 text-[#D4AF37] focus:ring-0 cursor-pointer"
-                      />
-                      <label htmlFor="clientConsent" className="text-xs text-[#FAF8F3]/90 leading-relaxed cursor-pointer">
-                        <span className="font-bold text-[#F5E7A3] block mb-0.5">Allow Public Portfolio Showcase (Optional)</span>
-                        I grant Shiuli CAD Studio permission to feature this finished 3D CAD design in the public portfolio showcase upon completion. (Your name, contact details, and private notes will <strong className="text-white">never</strong> be shown).
-                      </label>
-                    </div>
-
-                    {submissionError && (
-                      <div className="p-4 bg-rose-900/40 border border-rose-500/50 rounded-2xl text-rose-200 text-xs font-medium flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-400" />
-                        <span>{submissionError}</span>
-                      </div>
-                    )}
-
-                    {/* Dual Action CTAs */}
-                    <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Navigation Buttons */}
+                    <div className="pt-4 border-t border-white/10 flex justify-between">
                       <button
                         type="button"
-                        disabled={isSubmitting}
-                        onClick={() => handleSubmit('quote_only')}
-                        className="w-full py-4 px-6 bg-[#121F4D] border-2 border-[#D4AF37]/40 hover:border-[#D4AF37] text-[#FAF8F3] font-bold text-sm rounded-2xl transition-all shadow-md flex items-center justify-center gap-2"
+                        onClick={() => setCurrentStep(1)}
+                        className="px-6 py-3 bg-transparent border border-white/20 text-slate-300 font-bold text-xs rounded-xl hover:bg-white/5 flex items-center gap-2"
                       >
-                        {isSubmitting ? (
-                          <Loader2 className="w-5 h-5 animate-spin text-[#D4AF37]" />
-                        ) : (
-                          <>
-                            <FileText className="w-5 h-5 text-[#D4AF37]" /> Request Free Quote Only
-                          </>
-                        )}
+                        <ArrowLeft className="w-4 h-4" /> Back to Category
                       </button>
-
                       <button
                         type="button"
-                        disabled={isSubmitting}
-                        onClick={() => handleSubmit('place_order')}
-                        className="w-full py-4 px-6 btn-gold-luxury font-bold text-sm rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2"
+                        onClick={() => setCurrentStep(3)}
+                        className="px-8 py-3.5 btn-gold-luxury font-bold text-xs rounded-xl shadow-lg flex items-center gap-2"
                       >
-                        {isSubmitting ? (
-                          <Loader2 className="w-5 h-5 animate-spin text-[#0B1330]" />
-                        ) : (
-                          <>
-                            <Sparkles className="w-5 h-5" /> Submit & Start Custom 3D CAD
-                          </>
-                        )}
+                        Continue to Contact &amp; Submit <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                 )}
 
-                {/* Navigation Controls */}
-                <div className="flex justify-between items-center pt-8 border-t border-white/10 mt-8">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(prev => Math.max(prev - 1, 1))}
-                    disabled={currentStep === 1}
-                    className={`px-5 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${
-                      currentStep === 1
-                        ? 'border-white/10 text-white/20 cursor-not-allowed'
-                        : 'border-white/20 text-[#FAF8F3] hover:bg-white/5'
-                    }`}
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Previous Step
-                  </button>
+                {/* STEP 3: CONTACT & SUBMISSION */}
+                {currentStep === 3 && (
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="text-xl font-serif gold-gradient-text font-bold mb-1">Step 3: Contact &amp; Submission</h2>
+                      <p className="text-xs text-[#FAF8F3]/60">Provide your contact info to receive your 3D CAD files and custom quote.</p>
+                    </div>
 
-                  {currentStep < 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setCurrentStep(prev => Math.min(prev + 1, 5))}
-                      className="px-6 py-2.5 bg-[#1E4FA3] hover:bg-[#2A66D6] text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-2 transition-all"
-                    >
-                      Next Step <ArrowRight className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+                    {submissionError && (
+                      <div className="p-4 rounded-2xl bg-red-500/20 border border-red-500/50 text-red-200 text-xs flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 shrink-0 text-red-400" />
+                        <span>{submissionError}</span>
+                      </div>
+                    )}
+
+                    {/* Contact Details */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-[11px] text-[#FAF8F3]/70 font-semibold block mb-1">Full Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={clientName}
+                          onChange={(e) => setClientName(e.target.value)}
+                          placeholder="Your Name"
+                          className="w-full bg-[#09112B] border border-white/10 rounded-xl p-3 text-xs text-white focus:border-[#D4AF37] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-[#FAF8F3]/70 font-semibold block mb-1">Email Address *</label>
+                        <input
+                          type="email"
+                          required
+                          value={clientEmail}
+                          onChange={(e) => setClientEmail(e.target.value)}
+                          placeholder="client@example.com"
+                          className="w-full bg-[#09112B] border border-white/10 rounded-xl p-3 text-xs text-white focus:border-[#D4AF37] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-[#FAF8F3]/70 font-semibold block mb-1">Phone / WhatsApp</label>
+                        <input
+                          type="tel"
+                          value={clientPhone}
+                          onChange={(e) => setClientPhone(e.target.value)}
+                          placeholder="+1 (555) 000-0000"
+                          className="w-full bg-[#09112B] border border-white/10 rounded-xl p-3 text-xs text-white focus:border-[#D4AF37] outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Portfolio Consent */}
+                    <div className="flex items-start gap-3 p-4 bg-[#121F4D]/30 border border-white/10 rounded-2xl">
+                      <input
+                        type="checkbox"
+                        id="consent"
+                        checked={clientConsent}
+                        onChange={(e) => setClientConsent(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 accent-[#D4AF37] rounded cursor-pointer"
+                      />
+                      <label htmlFor="consent" className="text-xs text-slate-300 leading-relaxed cursor-pointer">
+                        I permit Shiuli CAD Studio to display anonymized renders of this CAD file in their studio portfolio gallery.
+                      </label>
+                    </div>
+
+                    {/* Dual Action Buttons */}
+                    <div className="pt-4 border-t border-white/10 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button
+                          type="button"
+                          disabled={isSubmitting}
+                          onClick={() => handleSubmit('quote_only')}
+                          className="py-3.5 px-4 bg-transparent border border-[#D4AF37]/50 text-[#F5E7A3] hover:bg-[#D4AF37]/10 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2"
+                        >
+                          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" /> : <FileText className="w-4 h-4" />}
+                          Request Specification Quote Only
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isSubmitting}
+                          onClick={() => handleSubmit('place_order')}
+                          className="py-3.5 px-4 btn-gold-luxury font-extrabold text-xs rounded-xl shadow-xl flex items-center justify-center gap-2"
+                        >
+                          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin text-[#0B1330]" /> : <CheckCircle2 className="w-4 h-4" />}
+                          Submit Custom 3D CAD Order
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentStep(2)}
+                          className="text-slate-300 hover:text-white flex items-center gap-1 underline"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" /> Back to Photos &amp; Notes
+                        </button>
+                        <span className="flex items-center gap-1 text-emerald-400">
+                          <ShieldCheck className="w-3.5 h-3.5" /> 100% Guaranteed 3D Print &amp; Cast Quality
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
 
-          {/* Specification Summary Sidebar (NO COST/PRICING SHOWN) */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-[#09112B]/90 backdrop-blur-xl rounded-3xl p-6 shadow-2xl border border-[#D4AF37]/30 sticky top-28 space-y-5">
-              <div className="flex items-center justify-between pb-3 border-b border-[#D4AF37]/20">
-                <h3 className="font-serif gold-gradient-text font-bold text-base flex items-center gap-2">
+          {/* STICKY SPECIFICATION SUMMARY SIDEBAR */}
+          <div className="lg:col-span-4 sticky top-28 space-y-4">
+            <div className="bg-[#09112B]/90 backdrop-blur-xl rounded-3xl p-6 border border-[#D4AF37]/30 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 className="font-serif gold-gradient-text font-bold text-sm uppercase tracking-wider flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-[#D4AF37]" /> Specification Summary
                 </h3>
-                <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#F5E7A3] border border-[#D4AF37]/30 font-bold uppercase">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#F5E7A3] border border-[#D4AF37]/30 uppercase">
                   {selectedCategory}
                 </span>
               </div>
 
-              {/* Selected Options Summary List */}
-              <div className="space-y-3">
-                <h4 className="text-[11px] font-bold text-[#F5E7A3] uppercase tracking-wider flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-[#D4AF37]" /> Configured Parameters
-                </h4>
-                
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {/* Selected Category */}
-                  <div className="p-2.5 rounded-xl bg-[#121F4D]/60 border border-white/10 text-xs flex justify-between items-center">
-                    <span className="text-[#FAF8F3]/60">Design Type:</span>
-                    <span className="font-bold text-[#FAF8F3] capitalize">{selectedCategory}</span>
+              {/* Selected Parameters List */}
+              <div className="space-y-2 text-xs">
+                <div className="p-3 rounded-xl bg-[#121F4D]/60 border border-white/10 flex justify-between items-center">
+                  <span className="text-slate-400">Design Category:</span>
+                  <span className="font-bold text-white capitalize">{selectedCategory}</span>
+                </div>
+
+                {selectedCategory === 'rings' && (
+                  <div className="p-3 rounded-xl bg-[#121F4D]/60 border border-white/10 flex justify-between items-center">
+                    <span className="text-slate-400">Ring Size:</span>
+                    <span className="font-bold text-[#F5E7A3]">{ringSize} ({ringSizeStandard})</span>
                   </div>
+                )}
 
-                  {/* Ring Sizing info */}
-                  {selectedCategory === 'rings' && (
-                    <div className="p-2.5 rounded-xl bg-[#121F4D]/60 border border-white/10 text-xs flex justify-between items-center">
-                      <span className="text-[#FAF8F3]/60">Target Ring Size:</span>
-                      <span className="font-bold text-[#F5E7A3]">{ringSize} ({ringSizeStandard})</span>
-                    </div>
-                  )}
+                <div className="p-3 rounded-xl bg-[#121F4D]/60 border border-white/10 flex justify-between items-center">
+                  <span className="text-slate-400">Attached Files:</span>
+                  <span className="font-bold text-[#D4AF37]">{sketchFiles.length} File(s)</span>
+                </div>
 
-                  {/* Selected Catalog References */}
-                  {selectedCatalogProducts.length > 0 && (
-                    <div className="p-2.5 rounded-xl bg-[#121F4D]/60 border border-[#D4AF37]/30 text-xs space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[#FAF8F3]/60">Catalog References:</span>
-                        <span className="font-bold text-[#D4AF37]">{selectedCatalogProducts.length} Selected</span>
-                      </div>
-                      <div className="text-[11px] text-[#FAF8F3]/80 font-medium truncate">
-                        {selectedCatalogProducts.map(p => p.title).join(', ')}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Option Selections */}
-                  {selectedValuesSummary.map((item, idx) => (
-                    <div key={idx} className="p-2.5 rounded-xl bg-[#121F4D]/60 border border-white/10 text-xs flex justify-between items-center">
-                      <span className="text-[#FAF8F3]/60 truncate max-w-[120px]">{item.group}:</span>
-                      <span className="font-bold text-[#FAF8F3] flex items-center gap-1.5">
-                        {item.color && (
-                          <span className="w-3 h-3 rounded-full border border-white/30" style={{ backgroundColor: item.color }} />
-                        )}
-                        {item.value}
-                      </span>
-                    </div>
-                  ))}
-
-                  {/* Gemstone Count */}
-                  <div className="p-2.5 rounded-xl bg-[#121F4D]/60 border border-white/10 text-xs flex justify-between items-center">
-                    <span className="text-[#FAF8F3]/60">Gemstone Setup:</span>
-                    <span className="font-bold text-[#FAF8F3]">
-                      {isMetalOnly ? 'Solid Metal Only' : `${stonesList.length} Stone Row(s)`}
-                    </span>
-                  </div>
-
-                  {/* Engraving */}
-                  {engravingText && (
-                    <div className="p-2.5 rounded-xl bg-[#121F4D]/60 border border-white/10 text-xs flex justify-between items-center">
-                      <span className="text-[#FAF8F3]/60">Custom Engraving:</span>
-                      <span className="font-bold text-[#F5E7A3] italic">"{engravingText}"</span>
-                    </div>
-                  )}
-
-                  {/* Vector Logo */}
-                  {hasLogo && (
-                    <div className="p-2.5 rounded-xl bg-[#121F4D]/60 border border-white/10 text-xs flex justify-between items-center">
-                      <span className="text-[#FAF8F3]/60">Hallmark Logo:</span>
-                      <span className="font-bold text-[#D4AF37]">Vector Stamp Included</span>
-                    </div>
-                  )}
+                <div className="p-3 rounded-xl bg-[#121F4D]/60 border border-white/10 flex justify-between items-center">
+                  <span className="text-slate-400">Turnaround:</span>
+                  <span className="font-bold text-emerald-400 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> 48-Hour Guarantee
+                  </span>
                 </div>
               </div>
 
-              {/* Included Deliverables Badge */}
+              {/* Included Deliverables */}
               <div className="p-4 bg-[#121F4D]/80 border border-[#D4AF37]/30 rounded-2xl text-xs space-y-2">
                 <h4 className="font-bold text-[#F5E7A3] flex items-center gap-1.5">
-                  <Box className="w-4 h-4 text-[#D4AF37]" /> Included CAD Assets
+                  <Box className="w-4 h-4 text-[#D4AF37]" /> Included CAD Deliverables
                 </h4>
-                <ul className="space-y-1 text-[#FAF8F3]/70 text-[11px]">
-                  <li className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-[#D4AF37]" /> Native 3DM Rhino / Matrix File</li>
-                  <li className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-[#D4AF37]" /> Printable High-Density STL Mesh</li>
-                  <li className="flex items-center gap-1.5"><CheckCircle className="w-3 h-3 text-[#D4AF37]" /> 4K Ultra-HD Photorealistic Renders</li>
+                <ul className="space-y-1.5 text-slate-200 text-[11px]">
+                  <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-[#D4AF37]" /> Native Rhino .3DM Source File</li>
+                  <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-[#D4AF37]" /> Printable High-Density STL Mesh</li>
+                  <li className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5 text-[#D4AF37]" /> 4K Ultra-HD Photorealistic Renders</li>
                 </ul>
               </div>
 
-              {/* 100% CAD Guarantee Card */}
-              <div className="p-4 bg-[#09112B] rounded-2xl border border-[#D4AF37]/30 text-[#FAF8F3]/75 text-[11px] space-y-1.5">
-                <div className="flex items-center gap-2 font-bold text-[#F5E7A3]">
-                  <ShieldCheck className="w-4 h-4 text-[#D4AF37]" /> 100% Production Guarantee
-                </div>
-                <p className="leading-relaxed">All CAD models undergo stringent stone seat clearance and casting shrink allowance checks by master goldsmiths.</p>
+              {/* Quality Guarantee */}
+              <div className="p-3.5 bg-[#09112B] rounded-2xl border border-white/10 text-slate-300 text-[11px] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>100% Production &amp; Shrinkage Allowance Guarantee</span>
               </div>
             </div>
           </div>
@@ -2180,14 +1880,14 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
           <div className="bg-[#09112B] rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl border border-[#D4AF37]/40 flex flex-col">
             <div className="p-6 bg-[#121F4D] text-[#FAF8F3] flex justify-between items-center border-b border-[#D4AF37]/30">
               <div>
-                <h3 className="text-lg font-serif gold-gradient-text font-bold flex items-center gap-2">
+                <h3 className="text-lg font-serif text-[#F5E7A3] font-bold flex items-center gap-2">
                   <Ruler className="w-5 h-5 text-[#D4AF37]" /> International Ring Size Conversion Chart
                 </h3>
-                <p className="text-xs text-[#FAF8F3]/60">Match inside diameter in millimeters across global sizing standards.</p>
+                <p className="text-xs text-slate-300">Match inside diameter in millimeters across global sizing standards.</p>
               </div>
               <button
                 onClick={() => setShowRingSizeModal(false)}
-                className="p-1 rounded-full text-[#FAF8F3]/60 hover:text-white hover:bg-white/10"
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -2207,11 +1907,11 @@ const DEFAULT_OPTION_GROUPS: OptionGroupData[] = [
                 <tbody className="divide-y divide-white/10">
                   {RING_SIZE_CONVERSION_TABLE.map((row, idx) => (
                     <tr key={idx} className="hover:bg-[#121F4D]/50 transition-colors">
-                      <td className="p-2.5 font-bold text-[#FAF8F3]">{row.us}</td>
-                      <td className="p-2.5 text-[#FAF8F3]/70">{row.uk}</td>
-                      <td className="p-2.5 text-[#FAF8F3]/70">{row.in_hk}</td>
-                      <td className="p-2.5 text-[#FAF8F3]/70">{row.eu}</td>
-                      <td className="p-2.5 font-mono text-[#F5E7A3] font-semibold">{row.inside_mm}</td>
+                      <td className="p-2.5 font-bold text-white">{row.us}</td>
+                      <td className="p-2.5 text-slate-300">{row.uk}</td>
+                      <td className="p-2.5 text-slate-300">{row.in_hk}</td>
+                      <td className="p-2.5 text-slate-300">{row.eu}</td>
+                      <td className="p-2.5 font-mono text-[#D4AF37] font-semibold">{row.inside_mm}</td>
                     </tr>
                   ))}
                 </tbody>

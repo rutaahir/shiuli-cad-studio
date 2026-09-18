@@ -1,12 +1,11 @@
 import secrets
 from datetime import timedelta
-from django.db import models, transaction
+from django.db import transaction
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
 from django.core.mail import send_mail
 from rest_framework import viewsets, status, permissions
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -117,62 +116,20 @@ class CustomRequestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        show_all = self.request.query_params.get('all') == 'true'
         if not user or not user.is_authenticated:
-            if show_all:
-                return CustomRequest.objects.all().order_by('-created_at')
             return CustomRequest.objects.none()
-
-        if show_all or getattr(user, 'role', None) in ['admin', 'staff'] or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+        if getattr(user, 'role', None) == 'admin':
             return CustomRequest.objects.all().order_by('-created_at')
-
-        # STRICT user matching for client view: only exact matches to prevent cross-user data leakage
-        q = models.Q(client=user)
-        if user.email:
-            q |= models.Q(client__email__iexact=user.email)
-            q |= models.Q(contact_email__iexact=user.email)
-
-        if getattr(user, 'phone_number', None):
-            clean_phone = ''.join(c for c in user.phone_number if c.isdigit())
-            if len(clean_phone) >= 10:
-                tail_phone = clean_phone[-10:]
-                q |= models.Q(contact_phone__icontains=tail_phone)
-
-        return CustomRequest.objects.filter(q).distinct().order_by('-created_at')
+        # Stage 1: Visible ONLY to client who created it and Admin. NEVER visible to staff.
+        if getattr(user, 'role', None) == 'staff':
+            return CustomRequest.objects.none()
+        return CustomRequest.objects.filter(client=user).order_by('-created_at')
 
     def perform_create(self, serializer):
         user = self.request.user if (self.request.user and self.request.user.is_authenticated) else None
-        if not user or getattr(user, 'role', None) == 'admin':
+        if not user:
             from apps.accounts.models import User
-            email = (serializer.validated_data.get('contact_email') or '').strip()
-            phone = (serializer.validated_data.get('contact_phone') or '').strip()
-            name = (serializer.validated_data.get('contact_name') or '').strip()
-            clean_phone = ''.join(c for c in phone if c.isdigit())
-            matched_user = None
-            if email:
-                matched_user = User.objects.filter(email__iexact=email).first()
-            if not matched_user and len(clean_phone) >= 7:
-                tail = clean_phone[-10:] if len(clean_phone) >= 10 else clean_phone
-                matched_user = User.objects.filter(phone_number__icontains=tail).first()
-            
-            if matched_user:
-                user = matched_user
-            elif email:
-                first_n = name.split()[0] if name else 'Client'
-                last_n = ' '.join(name.split()[1:]) if name and len(name.split()) > 1 else ''
-                user, _ = User.objects.get_or_create(
-                    email__iexact=email,
-                    defaults={
-                        'username': email.lower(),
-                        'email': email.lower(),
-                        'first_name': first_n,
-                        'last_name': last_n,
-                        'phone_number': phone,
-                        'role': 'client'
-                    }
-                )
-            else:
-                user = User.objects.filter(role='client').first()
+            user = User.objects.filter(role='client').first()
         serializer.save(client=user, status=CustomRequest.Status.NEW)
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], url_path='upload-sketch')
@@ -292,39 +249,6 @@ class CustomRequestViewSet(viewsets.ModelViewSet):
 
         return Response(CustomRequestSerializer(custom_req, context={'request': request}).data)
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.AllowAny], url_path='toggle-download')
-    def toggle_download(self, request, pk=None):
-        custom_req = self.get_object()
-        unlocked = request.data.get('unlocked')
-        order = getattr(custom_req, 'order', None) or Order.objects.filter(custom_request=custom_req).first()
-        if not order:
-            client_user = custom_req.client
-            if not client_user:
-                from apps.accounts.models import User
-                client_user = User.objects.filter(role='client').first() or User.objects.first()
-            price = custom_req.agreed_price or custom_req.estimated_price_shown or 1000
-            order = Order.objects.create(
-                client=client_user,
-                order_type=Order.OrderType.CUSTOM,
-                custom_request=custom_req,
-                total_price=price,
-                status=Order.Status.IN_DESIGN,
-                download_unlocked=bool(unlocked) if unlocked is not None else True
-            )
-        else:
-            if unlocked is None:
-                order.download_unlocked = not order.download_unlocked
-            else:
-                order.download_unlocked = bool(unlocked)
-            order.save(update_fields=['download_unlocked'])
-
-        return Response({
-            "request_id": custom_req.id,
-            "order_id": order.id,
-            "download_unlocked": order.download_unlocked,
-            "message": f"Download access {'unlocked' if order.download_unlocked else 'locked'} successfully."
-        })
-
     # STAGE 3 — TWO-WAY NEGOTIATION (CLIENT OR ADMIN COUNTER)
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='negotiate')
     def negotiate(self, request, pk=None):
@@ -365,14 +289,11 @@ class CustomRequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='accept-quote')
     def accept_quote(self, request, pk=None):
         custom_req = self.get_object()
-        if custom_req.status not in [CustomRequest.Status.NEW, CustomRequest.Status.QUOTED, CustomRequest.Status.NEGOTIATING, CustomRequest.Status.AGREED]:
+        if custom_req.status not in [CustomRequest.Status.QUOTED, CustomRequest.Status.NEGOTIATING]:
             return Response({"error": "Custom request cannot be accepted in its current state."}, status=status.HTTP_400_BAD_REQUEST)
 
         custom_req.status = CustomRequest.Status.AGREED
-        offered_price = request.data.get('price') or request.data.get('agreed_price')
-        if offered_price:
-            custom_req.agreed_price = offered_price
-        elif not custom_req.agreed_price:
+        if not custom_req.agreed_price:
             latest_offer = custom_req.messages.filter(offered_price__isnull=False).order_by('-created_at').first()
             custom_req.agreed_price = latest_offer.offered_price if latest_offer else (custom_req.estimated_price_shown or 100.00)
         custom_req.save()
@@ -394,7 +315,7 @@ class CustomRequestViewSet(viewsets.ModelViewSet):
                 unassigned_since=timezone.now()
             )
             OrderPaymentStage.objects.create(order=order, label="Booking Confirmation", percentage=10.0, amount=advance_amount, order_index=0, trigger_type="immediate", status=OrderPaymentStage.Status.DUE)
-            OrderPaymentStage.objects.create(order=order, label="Mid-Project Milestone", percentage=30.0, amount=round(total_price * 0.30, 2), order_index=1, trigger_type="during_cad_work", status=OrderPaymentStage.Status.DUE)
+            OrderPaymentStage.objects.create(order=order, label="Design Approval Milestone", percentage=30.0, amount=round(total_price * 0.30, 2), order_index=1, trigger_type="on_design_approval", status=OrderPaymentStage.Status.LOCKED)
             OrderPaymentStage.objects.create(order=order, label="Final CAD Delivery", percentage=60.0, amount=round(total_price * 0.60, 2), order_index=2, trigger_type="on_final_delivery", status=OrderPaymentStage.Status.LOCKED)
         else:
             order = custom_req.order
@@ -491,7 +412,6 @@ class CustomRequestViewSet(viewsets.ModelViewSet):
 
 class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_serializer_class(self):
         user = self.request.user
@@ -507,16 +427,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         queryset = Order.objects.all().select_related('client', 'assigned_staff', 'product', 'custom_request').prefetch_related('milestones', 'deliverables', 'payment_stages')
 
         if user.role == 'client':
-            # STRICT: Only exact match by user FK or exact email
-            q = models.Q(client=user)
-            if user.email:
-                q |= models.Q(client__email__iexact=user.email)
-            if getattr(user, 'phone_number', None):
-                clean_phone = ''.join(c for c in user.phone_number if c.isdigit())
-                if len(clean_phone) >= 10:
-                    tail_phone = clean_phone[-10:]
-                    q |= models.Q(custom_request__contact_phone__icontains=tail_phone)
-            return queryset.filter(q).distinct().order_by('-created_at')
+            return queryset.filter(client=user).order_by('-created_at')
         elif user.role == 'staff':
             # Staff only sees orders assigned to them
             return queryset.filter(assigned_staff=user).order_by('-created_at')
@@ -561,7 +472,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
             from apps.payments.models import OrderPaymentStage
             OrderPaymentStage.objects.create(order=ord_obj, label="Booking Confirmation", percentage=10.0, amount=advance_amount, order_index=0, trigger_type="immediate", status=OrderPaymentStage.Status.DUE)
-            OrderPaymentStage.objects.create(order=ord_obj, label="Mid-Project Milestone", percentage=30.0, amount=round(total_price * 0.30, 2), order_index=1, trigger_type="during_cad_work", status=OrderPaymentStage.Status.DUE)
+            OrderPaymentStage.objects.create(order=ord_obj, label="Design Approval Milestone", percentage=30.0, amount=round(total_price * 0.30, 2), order_index=1, trigger_type="on_design_approval", status=OrderPaymentStage.Status.LOCKED)
             OrderPaymentStage.objects.create(order=ord_obj, label="Final CAD Delivery", percentage=60.0, amount=round(total_price * 0.60, 2), order_index=2, trigger_type="on_final_delivery", status=OrderPaymentStage.Status.LOCKED)
 
         # Release any unassigned orders linked to agreed custom requests to IN_DESIGN
@@ -598,7 +509,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     # STAGE 8 — CRAFTSMAN MILESTONE STEPPER RECORDING
-    @action(detail=True, methods=['post'], permission_classes=[IsStaffOrAdmin], url_path='milestone')
+    @action(detail=True, methods=['post'], permission_classes=[IsStaff], url_path='milestone')
     def add_milestone(self, request, pk=None):
         order = self.get_object()
         if order.assigned_staff and order.assigned_staff != request.user and getattr(request.user, 'role', None) != 'admin' and not getattr(request.user, 'is_superuser', False):
@@ -613,19 +524,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "Milestone stage name is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         milestone_obj = OrderMilestone.objects.create(order=order, stage=stage)
-
-        if stage in ['Ready for Delivery', 'Ready for Review', 'Completed', 'Handover']:
-            order.status = Order.Status.COMPLETED
-            order.save(update_fields=['status'])
-            if order.client:
-                create_notification(
-                    recipient=order.client,
-                    title="CAD Modeling Complete!",
-                    body=f"Your custom 3D CAD design for Order #{order.id} has reached 100% completion.",
-                    notification_type="order_completed",
-                    related_order=order
-                )
-
         return Response(StaffOrderSerializer(order, context={'request': request}).data)
 
     # STAGE 9 — STAFF UPLOADS COMPLETED WORK (JPG PREVIEW + CAD FILES)
@@ -749,56 +647,105 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return Response({"error": "Invalid decision. Use 'approve' or 'reject'."}, status=status.HTTP_400_BAD_REQUEST)
 
-    # STAGE 11 — ADMIN TOGGLES CAD DOWNLOAD ACCESS FOR CLIENT (AFTER CHECKING FULL PAYMENT)
-    @action(detail=True, methods=['post'], permission_classes=[permissions.AllowAny], url_path='toggle-download')
-    def toggle_download(self, request, pk=None):
-        order = None
-        try:
-            order = self.get_object()
-        except Exception:
-            pass
-        if not order:
-            order = Order.objects.filter(custom_request_id=pk).first() or Order.objects.filter(id=pk).first()
-        if not order:
-            return Response({"error": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+    # STAFF ACTION: SEND PREVIEW FILE & NOTES TO CLIENT AT ANY TIME
+    @action(detail=True, methods=['post'], permission_classes=[IsStaffOrAdmin], url_path='send-preview')
+    def send_preview(self, request, pk=None):
+        order = self.get_object()
+        if order.assigned_staff and order.assigned_staff != request.user and getattr(request.user, 'role', None) != 'admin' and not getattr(request.user, 'is_superuser', False):
+            return Response({"error": "Forbidden. You are not assigned to this order."}, status=status.HTTP_403_FORBIDDEN)
 
-        unlocked = request.data.get('unlocked')
-        if unlocked is None:
-            order.download_unlocked = not order.download_unlocked
-        else:
-            order.download_unlocked = bool(unlocked)
-        order.save(update_fields=['download_unlocked'])
+        preview_notes = request.data.get('preview_notes', '') or request.data.get('notes', '')
+        preview_file_obj = request.FILES.get('preview_file') or request.FILES.get('preview_image') or request.FILES.get('file')
 
-        if order.download_unlocked and order.client:
+        if preview_file_obj:
+            ext = preview_file_obj.name.split('.')[-1].lower() if '.' in preview_file_obj.name else ''
+            if ext in ['jpg', 'jpeg', 'png', 'webp', 'gif']:
+                order.preview_image = preview_file_obj
+            else:
+                order.preview_file = preview_file_obj
+
+        if preview_notes:
+            order.preview_notes = preview_notes
+
+        order.preview_sent_at = timezone.now()
+        order.preview_status = 'pending_approval'
+        order.status = Order.Status.PREVIEW_PENDING_APPROVAL
+        order.save()
+
+        if order.client:
             create_notification(
                 recipient=order.client,
-                title="CAD Download Unlocked!",
-                body=f"Admin has released the 3D CAD deliverable files for Order #{order.id}. You can now download your files!",
-                notification_type="download_unlocked",
+                title="Design Preview Ready for Your Approval!",
+                body=f"Your CAD designer has sent a preview file for Order #{order.id}. Please review and approve or request changes.",
+                notification_type="preview_sent",
                 related_order=order
             )
 
-        return Response({
-            "id": order.id,
-            "download_unlocked": order.download_unlocked,
-            "message": f"Download access {'unlocked' if order.download_unlocked else 'locked'} successfully."
-        })
+        serializer_cls = StaffOrderSerializer if request.user.role == 'staff' else AdminOrderSerializer
+        return Response(serializer_cls(order, context={'request': request}).data)
 
-    # STAGE 12 — GENERATE 6-DIGIT OTP FOR CAD DOWNLOAD UPON 100% PAYMENT & ADMIN UNLOCK
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='request-otp')
+    # CLIENT ACTION: APPROVE PREVIEW FILE
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='approve-preview')
+    def approve_preview(self, request, pk=None):
+        order = self.get_object()
+        if order.client != request.user and getattr(request.user, 'role', None) != 'admin':
+            return Response({"error": "Forbidden. Only the client can approve this preview."}, status=status.HTTP_403_FORBIDDEN)
+
+        feedback = request.data.get('feedback', 'Approved by client')
+        order.preview_status = 'approved'
+        order.status = Order.Status.PREVIEW_APPROVED
+        order.preview_feedback = feedback
+        order.quality_approved = True
+        order.save()
+
+        if order.assigned_staff:
+            create_notification(
+                recipient=order.assigned_staff,
+                title=f"Client Approved Preview! (Order #{order.id})",
+                body=f"Client approved your design preview for Order #{order.id}. You can now proceed with final 3DM/STL file production.",
+                notification_type="preview_approved",
+                related_order=order
+            )
+
+        return Response(ClientOrderSerializer(order, context={'request': request}).data)
+
+    # CLIENT ACTION: REQUEST PREVIEW REVISION
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='request-preview-revision')
+    def request_preview_revision(self, request, pk=None):
+        order = self.get_object()
+        if order.client != request.user and getattr(request.user, 'role', None) != 'admin':
+            return Response({"error": "Forbidden. Only the client can request preview revisions."}, status=status.HTTP_403_FORBIDDEN)
+
+        revision_notes = request.data.get('revision_notes', '') or request.data.get('notes', '')
+        if not revision_notes:
+            return Response({"error": "Please describe the changes or revisions requested."}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.preview_status = 'revision_requested'
+        order.status = Order.Status.REVISION_REQUESTED
+        order.preview_feedback = revision_notes
+        order.admin_review_notes = f"Client Preview Revision Notes: {revision_notes}"
+        order.save()
+
+        if order.assigned_staff:
+            create_notification(
+                recipient=order.assigned_staff,
+                title=f"Client Requested Preview Revisions (Order #{order.id})",
+                body=f"Client requested preview changes for Order #{order.id}: {revision_notes}",
+                notification_type="preview_revision",
+                related_order=order
+            )
+
+        return Response(ClientOrderSerializer(order, context={'request': request}).data)
+
+    # STAGE 12 — GENERATE 6-DIGIT OTP FOR CAD DOWNLOAD UPON 100% PAYMENT
+    @action(detail=True, methods=['post'], permission_classes=[IsClient], url_path='request-otp')
     def request_order_otp(self, request, pk=None):
         from apps.payments.models import DownloadOTP
         order = self.get_object()
 
-        # Check if Admin has unlocked CAD download
-        if not order.download_unlocked:
-            return Response({
-                "error": "CAD download has not been released yet by Admin. Please ensure full payment has been confirmed and Admin has unlocked delivery."
-            }, status=status.HTTP_403_FORBIDDEN)
-
         # Check if 100% of payment stages are paid
         unpaid_stages = order.payment_stages.exclude(status='paid')
-        if unpaid_stages.exists() and not getattr(order, 'balance_paid', False):
+        if unpaid_stages.exists():
             return Response({
                 "error": "All payment stages must be fully paid before generating secure CAD download OTP."
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -842,18 +789,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"[EMAIL WARNING] Failed to send order OTP email: {e}")
 
-        resp_data = {
+        return Response({
             "message": f"Verification code sent to {request.user.email}.",
-            "expires_in_seconds": 600,
-            "email": request.user.email
-        }
-        if getattr(settings, 'DEBUG', True):
-            resp_data["demo_otp"] = otp_code
-
-        return Response(resp_data)
+            "expires_in_seconds": 600
+        })
 
     # STAGE 12 — VERIFY 6-DIGIT OTP AND GENERATE SECURE DOWNLOAD TOKEN
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='verify-otp')
+    @action(detail=True, methods=['post'], permission_classes=[IsClient], url_path='verify-otp')
     def verify_order_otp(self, request, pk=None):
         from apps.payments.models import DownloadOTP, DownloadToken
         order = self.get_object()
@@ -920,7 +862,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             print(f"[EMAIL WARNING] Failed to send order download token email: {e}")
 
         return Response({
-            "message": f"Verified! Single-use secure download link generated.",
-            "download_token": raw_token,
-            "download_url": f"/download/{raw_token}"
+            "message": f"Verified! Single-use secure download link sent to {request.user.email}.",
+            "download_token": raw_token
         })

@@ -69,6 +69,46 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
   const [showCompleteModal, setShowCompleteModal] = useState<boolean>(false);
   const [isCompleting, setIsCompleting] = useState<boolean>(false);
 
+  // Send Preview Modal & Form State
+  const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
+  const [previewFileObj, setPreviewFileObj] = useState<File | null>(null);
+  const [previewNotesInput, setPreviewNotesInput] = useState<string>('');
+  const [previewFilePreviewUrl, setPreviewFilePreviewUrl] = useState<string | null>(null);
+  const [isSendingPreview, setIsSendingPreview] = useState<boolean>(false);
+  const [previewSuccessMsg, setPreviewSuccessMsg] = useState<string | null>(null);
+
+  const handleSendPreview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSendingPreview(true);
+    setUploadError(null);
+    setPreviewSuccessMsg(null);
+
+    try {
+      const formData = new FormData();
+      if (previewFileObj) {
+        formData.append('preview_file', previewFileObj);
+        formData.append('preview_image', previewFileObj);
+      }
+      formData.append('preview_notes', previewNotesInput);
+
+      await api.request(`/orders/${effectiveOrderId}/send-preview/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      setPreviewSuccessMsg('Design preview file sent to client for approval!');
+      setShowPreviewModal(false);
+      setPreviewFileObj(null);
+      setPreviewFilePreviewUrl(null);
+      setPreviewNotesInput('');
+      await fetchOrderDetails();
+    } catch (err: any) {
+      setUploadError(err?.message || 'Failed to send preview file to client.');
+    } finally {
+      setIsSendingPreview(false);
+    }
+  };
+
   // Fetch real order data from backend
   const fetchOrderDetails = async () => {
     try {
@@ -665,6 +705,83 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
             </div>
           </div>
 
+          {/* SECTION 4.5: CLIENT PREVIEW FILE & APPROVAL WORKFLOW */}
+          <div className="bg-gradient-to-br from-[#09112B] to-[#12204D] border-2 border-[#D4AF37]/50 p-6 rounded-2xl shadow-xl space-y-4 text-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D4AF37]/30 pb-4">
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5 text-[#F5E7A3]" />
+                <h3 className="text-lg font-serif font-bold text-[#F5E7A3]">
+                  Client Design Preview &amp; Approval Stage
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPreviewModal(true)}
+                className="btn-gold-luxury px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-lg transition-transform hover:scale-105 shrink-0 cursor-pointer"
+              >
+                <Send className="w-4 h-4 text-[#0B1330]" />
+                <span>{orderData?.preview_status && orderData.preview_status !== 'none' ? 'Send New Preview File' : 'Send Preview File to Client'}</span>
+              </button>
+            </div>
+
+            {previewSuccessMsg && (
+              <div className="p-3 rounded-xl bg-emerald-900/80 border border-emerald-400/50 text-emerald-200 text-xs font-semibold flex items-center justify-between">
+                <span>✓ {previewSuccessMsg}</span>
+                <button onClick={() => setPreviewSuccessMsg(null)} className="text-emerald-400 font-bold ml-2">✕</button>
+              </div>
+            )}
+
+            {/* Status Banner */}
+            {orderData?.preview_status === 'pending_approval' || orderData?.status === 'preview_pending_approval' ? (
+              <div className="p-4 rounded-xl bg-[#1E4FA3]/40 border border-[#5B8DEF]/50 space-y-2 text-xs">
+                <div className="flex items-center gap-2 font-bold text-[#F5E7A3]">
+                  <Clock className="w-4 h-4 text-[#F5E7A3] animate-spin" />
+                  <span>Preview Sent to Client — Awaiting Client Approval</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  Preview file sent on {orderData.preview_sent_at ? new Date(orderData.preview_sent_at).toLocaleString() : 'Recently'}. You will be notified as soon as the client approves or requests changes.
+                </p>
+                {orderData.preview_notes && (
+                  <div className="p-2.5 rounded-lg bg-black/40 text-slate-200 italic border border-white/10 text-[11px]">
+                    Notes sent to client: "{orderData.preview_notes}"
+                  </div>
+                )}
+              </div>
+            ) : orderData?.preview_status === 'approved' || orderData?.status === 'preview_approved' ? (
+              <div className="p-4 rounded-xl bg-emerald-950/80 border border-emerald-500/50 space-y-2 text-xs text-emerald-200">
+                <div className="flex items-center gap-2 font-bold text-emerald-300">
+                  <CheckCircle2 className="w-4.5 h-4.5 text-emerald-400" />
+                  <span>✅ Client Approved Preview File — Authorized for Full 3D Production!</span>
+                </div>
+                {orderData.preview_feedback && (
+                  <p className="text-emerald-100 text-[11px] italic bg-black/30 p-2.5 rounded-lg border border-emerald-500/30">
+                    Client Feedback: "{orderData.preview_feedback}"
+                  </p>
+                )}
+              </div>
+            ) : orderData?.preview_status === 'revision_requested' || orderData?.status === 'revision_requested' ? (
+              <div className="p-4 rounded-xl bg-rose-950/80 border border-rose-500/50 space-y-2 text-xs text-rose-200">
+                <div className="flex items-center gap-2 font-bold text-rose-300">
+                  <AlertTriangle className="w-4.5 h-4.5 text-rose-400 animate-pulse" />
+                  <span>🔄 Client Requested Preview Revisions</span>
+                </div>
+                {orderData.preview_feedback && (
+                  <p className="text-rose-100 text-[11px] italic bg-black/30 p-2.5 rounded-lg border border-rose-500/30">
+                    Requested Changes: "{orderData.preview_feedback}"
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-300">
+                  Please modify your CAD design according to the client's notes above, then click <strong>"Send New Preview File"</strong> to resubmit for approval.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-[#09112B]/70 border border-white/10 text-xs text-slate-300 flex items-center justify-between">
+                <span>You can send draft 3D renders or preview files to the client at any point during production.</span>
+                <span className="text-[#F5E7A3] font-bold text-[11px] font-mono">Status: Ready to Send</span>
+              </div>
+            )}
+          </div>
+
           {/* SECTION 5: CAD DELIVERABLES VAULT (.3DM, .STL, Render, Video) */}
           <div className="bg-white border border-[#E5E7EF] p-6 rounded-2xl shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-[#E5E7EF] pb-3">
@@ -1133,6 +1250,96 @@ export const StaffActiveJobWorkspace: React.FC<StaffActiveJobWorkspaceProps> = (
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SEND PREVIEW MODAL */}
+      {showPreviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#09112B] rounded-3xl max-w-lg w-full p-6 border border-[#D4AF37]/50 shadow-2xl space-y-5 text-white">
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+              <h3 className="text-lg font-serif font-bold text-[#F5E7A3] flex items-center gap-2">
+                <Send className="w-5 h-5 text-[#D4AF37]" /> Send Preview File to Client
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPreviewModal(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-full"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSendPreview} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1.5">
+                  Select Preview Image / Render / 3D File
+                </label>
+                <div className="border-2 border-dashed border-[#D4AF37]/40 hover:border-[#D4AF37] rounded-xl p-5 text-center bg-[#121F4D]/40">
+                  {previewFilePreviewUrl ? (
+                    <div className="space-y-2">
+                      <img src={previewFilePreviewUrl} alt="Preview thumbnail" className="w-32 h-32 object-cover mx-auto rounded-lg border border-[#D4AF37]" />
+                      <span className="text-[11px] text-[#F5E7A3] block font-bold truncate">{previewFileObj?.name}</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Upload className="w-7 h-7 text-[#D4AF37] mx-auto" />
+                      <p className="text-slate-300 font-medium">Click to select render image or CAD preview file</p>
+                      <p className="text-[10px] text-slate-400">Supports JPG, PNG, WEBP, 3DM, STL</p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*,.3dm,.stl"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const f = e.target.files[0];
+                        setPreviewFileObj(f);
+                        if (f.type.startsWith('image/')) {
+                          setPreviewFilePreviewUrl(URL.createObjectURL(f));
+                        } else {
+                          setPreviewFilePreviewUrl(null);
+                        }
+                      }
+                    }}
+                    className="mt-3 block w-full text-xs text-slate-400 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1.5">
+                  Craftsman Notes / Message for Client *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={previewNotesInput}
+                  onChange={(e) => setPreviewNotesInput(e.target.value)}
+                  placeholder="Describe stone seat tolerances, shank dimensions, or prong changes in this preview..."
+                  className="w-full bg-[#060B1E] border border-white/10 rounded-xl p-3 text-white focus:border-[#D4AF37] outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-white/20 text-slate-300 font-bold hover:bg-white/5 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingPreview}
+                  className="btn-gold-luxury px-6 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg cursor-pointer"
+                >
+                  {isSendingPreview ? <Loader2 className="w-4 h-4 animate-spin text-[#0B1330]" /> : <Send className="w-4 h-4" />}
+                  Send Preview to Client
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

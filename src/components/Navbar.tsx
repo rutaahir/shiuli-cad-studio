@@ -31,8 +31,7 @@ import {
   Cpu,
   Edit2,
   Ruler,
-  Scale,
-  Package
+  Scale
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -188,12 +187,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     { type: 'ai', title: 'AI Projects', desc: 'Parametric AI Concepts' },
   ];
 
-  const ordersMenuItems = [
-    { tab: 'orders', title: 'Order History & Invoices', desc: 'All purchases, invoices & delivery receipts' },
-    { tab: 'custom', title: 'Custom CAD Orders', desc: 'Bespoke design briefs, milestone payments & 3D approvals' },
-    { tab: 'downloads', title: 'My CAD Vault', desc: 'Secure 3DM/STL file downloads & OTP re-delivery' },
-  ];
-
   // Search Results
   const searchResults = searchQuery.trim()
     ? products
@@ -234,18 +227,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 Home
-              </button>
-
-              {/* CAD Services */}
-              <button
-                onClick={() => onNavigate('cad-service')}
-                className={`px-2.5 py-1.5 text-xs xl:text-[13px] tracking-wider uppercase font-medium transition-colors ${
-                  activePage === 'cad-service'
-                    ? 'text-[#F5E7A3] font-bold'
-                    : 'text-[#F5F1E8]/80 hover:text-[#FAF8F3]'
-                }`}
-              >
-                CAD Services
               </button>
 
               {/* Custom Design */}
@@ -385,79 +366,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Portfolio
               </button>
 
-              {/* Orders Dropdown & Direct Link */}
-              <div
-                className="relative"
-                onMouseEnter={() => handleMouseEnterDropdown('orders')}
-                onMouseLeave={handleMouseLeaveDropdown}
-              >
-                <button
-                  onClick={() => {
-                    if (isLoggedIn) {
-                      onNavigate('account', 'orders');
-                    } else {
-                      onOpenAuth();
-                    }
-                  }}
-                  className={`px-2.5 py-1.5 text-xs xl:text-[13px] tracking-wider uppercase font-medium flex items-center gap-1 transition-colors ${
-                    activePage === 'account' || activeDropdown === 'orders'
-                      ? 'text-[#F5E7A3] font-bold'
-                      : 'text-[#F5F1E8]/80 hover:text-[#FAF8F3]'
-                  }`}
-                >
-                  <Package className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>Orders</span>
-                  <ChevronDown className="w-3 h-3 text-[#D4AF37]/80" />
-                </button>
-
-                {activeDropdown === 'orders' && (
-                  <div className="absolute left-0 top-full pt-2 w-72 z-50">
-                    <div className="bg-[#09112B] border border-[#D4AF37]/30 rounded-2xl shadow-2xl p-3 space-y-1 backdrop-blur-xl">
-                      <div className="px-3 py-1.5 border-b border-[#D4AF37]/20 mb-1 flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">
-                          Client Orders &amp; CAD Vault
-                        </span>
-                        <span className="text-[9px] bg-[#D4AF37]/20 text-[#F5E7A3] px-2 py-0.5 rounded font-mono">
-                          Live Status
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        {ordersMenuItems.map(item => (
-                          <button
-                            key={item.tab}
-                            onClick={() => {
-                              if (isLoggedIn) {
-                                onNavigate('account', item.tab);
-                              } else {
-                                onOpenAuth();
-                              }
-                              setActiveDropdown(null);
-                            }}
-                            className="w-full text-left p-2.5 rounded-xl hover:bg-[#121F4D] transition-all group"
-                          >
-                            <p className="text-xs font-bold text-[#FAF8F3] group-hover:text-[#F5E7A3] flex items-center justify-between">
-                              <span>{item.title}</span>
-                              <ArrowRight className="w-3 h-3 text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </p>
-                            <p className="text-[10px] text-[#FAF8F3]/50 line-clamp-1">{item.desc}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Pricing */}
-              <button
-                onClick={() => onNavigate('pricing')}
-                className={`px-2.5 py-1.5 text-xs xl:text-[13px] tracking-wider uppercase font-medium transition-colors ${
-                  activePage === 'pricing' ? 'text-[#F5E7A3] font-bold' : 'text-[#F5F1E8]/80 hover:text-[#FAF8F3]'
-                }`}
-              >
-                Pricing
-              </button>
-
               {/* About Us */}
               <button
                 onClick={() => onNavigate('about')}
@@ -502,23 +410,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </button>
 
-              {/* Quick Orders Icon Button */}
-              <button
-                onClick={() => {
-                  if (isLoggedIn) {
-                    onNavigate('account', 'orders');
-                  } else {
-                    onOpenAuth();
-                  }
-                }}
-                className={`p-2 transition-colors relative rounded-full hover:bg-white/5 ${
-                  activePage === 'account' ? 'text-[#F5E7A3]' : 'text-[#F5F1E8]/80 hover:text-[#D4AF37]'
-                }`}
-                title="Orders & Invoices"
-              >
-                <Package className="w-4 h-4" />
-              </button>
-
               {/* Account Dropdown */}
               <div className="relative">
                 {isLoggedIn ? (
@@ -549,22 +440,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                         className="w-full text-left px-3 py-2 text-xs font-bold text-[#FAF8F3] hover:bg-[#121F4D] rounded-xl"
                       >
                         Client Dashboard
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          onNavigate('account', 'orders');
-                          setAccountDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-[#F5E7A3] hover:bg-[#121F4D] rounded-xl flex items-center justify-between group"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Package className="w-3.5 h-3.5 text-[#D4AF37]" />
-                          My Orders
-                        </span>
-                        <span className="text-[10px] text-[#D4AF37] font-mono group-hover:translate-x-0.5 transition-transform">
-                          View →
-                        </span>
                       </button>
 
                       {user?.role === 'admin' && (
@@ -632,10 +507,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               Home
             </button>
 
-            <button onClick={() => { onNavigate('cad-service'); setMobileMenuOpen(false); }} className="w-full text-left font-serif text-lg font-bold text-[#FAF8F3]">
-              CAD Services
-            </button>
-
             <button onClick={() => { onNavigate('custom-design'); setMobileMenuOpen(false); }} className="w-full text-left font-serif text-lg font-bold text-[#FAF8F3]">
               Custom Design
             </button>
@@ -654,28 +525,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button onClick={() => { onNavigate('portfolio'); setMobileMenuOpen(false); }} className="w-full text-left font-serif text-lg font-bold text-[#FAF8F3]">
               Portfolio Showcase
-            </button>
-
-            <button
-              onClick={() => {
-                if (isLoggedIn) {
-                  onNavigate('account', 'orders');
-                } else {
-                  onOpenAuth();
-                }
-                setMobileMenuOpen(false);
-              }}
-              className="w-full text-left font-serif text-lg font-bold text-[#F5E7A3] flex items-center justify-between py-1"
-            >
-              <span className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-[#D4AF37]" />
-                Orders &amp; Vault
-              </span>
-              <span className="text-xs text-[#D4AF37] font-mono">History →</span>
-            </button>
-
-            <button onClick={() => { onNavigate('pricing'); setMobileMenuOpen(false); }} className="w-full text-left font-serif text-lg font-bold text-[#FAF8F3]">
-              Pricing & Plans
             </button>
 
             <button onClick={() => { onNavigate('about'); setMobileMenuOpen(false); }} className="w-full text-left font-serif text-lg font-bold text-[#FAF8F3]">
